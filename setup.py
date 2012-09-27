@@ -20,7 +20,9 @@ source_files = ['who8myrpi/example.pyx',
                 'who8myrpi/wiringPi/softPwm.c',
                 'who8myrpi/wiringPi/piThread.c',
                 'who8myrpi/wiringPi/gertboard.c',
-                'who8myrpi/wiringPi/lcd.c']
+                'who8myrpi/wiringPi/lcd.c',
+                'who8myrpi/wiringPi/piHiPri.c',
+                ]
                 
 include_dirs = ['who8myrpi/wiringPi',
                 setuptools.distutils.sysconfig.get_python_inc(),
