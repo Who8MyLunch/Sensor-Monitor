@@ -11,8 +11,8 @@ from setuptools.extension import Extension
 from Cython.Distutils import build_ext
 
 
-# Cython extension.
-source_files = ['who8myrpi/wiring.pyx',
+# GPIO Cython extension.
+source_files = ['who8myrpi/gpio.pyx',
                 'who8myrpi/wiringPi/wiringPi.c',
                 'who8myrpi/wiringPi/wiringPiSPI.c',
                 'who8myrpi/wiringPi/wiringSerial.c',
@@ -32,20 +32,20 @@ include_dirs = ['who8myrpi',
 extra_compile_args = []
 extra_link_args = []
 
-ext_wiring = Extension('wiring', source_files,
-                       language='c++',
-                       include_dirs=include_dirs,
-                       extra_compile_args=extra_compile_args,
-                       extra_link_args=extra_link_args)
+ext_gpio = Extension('gpio', source_files,
+                     language='c++',
+                     include_dirs=include_dirs,
+                     extra_compile_args=extra_compile_args,
+                     extra_link_args=extra_link_args)
 
 # Do it.
 version = '2012.09.29'
 
 setup(name='Who8MyRPi',
       packages=find_packages(),
-      package_data={'': ['*.txt', '*.md', '*.c', '*.h', '*.pyx']},
+      package_data={'': ['*.txt', '*.md', '*.cpp', '*.pyx', '*.pxd']},
       cmdclass={'build_ext':build_ext},
-      ext_modules=[ext_wiring],
+      ext_modules=[ext_gpio],
 
       # Metadata
       version=version,
