@@ -33,7 +33,7 @@ include_dirs = ['who8myrpi',
 extra_compile_args = []
 extra_link_args = []
 
-ext_gpio = Extension('gpio', source_files,
+ext_gpio = Extension('_gpio', source_files,
                      language='c++',
                      include_dirs=include_dirs,
                      extra_compile_args=extra_compile_args,
