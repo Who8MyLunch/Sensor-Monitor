@@ -2,6 +2,6 @@
 from __future__ import division, print_function, unicode_literals
 
 
-import wiring
+import gpio
 
-wiring.demo()
+gpio.demo()

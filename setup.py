@@ -12,7 +12,7 @@ from Cython.Distutils import build_ext
 
 
 # GPIO Cython extension.
-source_files = ['who8myrpi/gpio.pyx',
+source_files = ['who8myrpi/_gpio.pyx',
                 'who8myrpi/wiringPi/wiringPi.c',
                 'who8myrpi/wiringPi/wiringPiSPI.c',
                 'who8myrpi/wiringPi/wiringSerial.c',
@@ -20,6 +20,7 @@ source_files = ['who8myrpi/gpio.pyx',
                 'who8myrpi/wiringPi/softPwm.c',
                 'who8myrpi/wiringPi/piThread.c',
                 'who8myrpi/wiringPi/gertboard.c',
+                'who8myrpi/wiringPi/wiringPiFace.c',
                 'who8myrpi/wiringPi/lcd.c',
                 'who8myrpi/wiringPi/piHiPri.c',
                 ]
