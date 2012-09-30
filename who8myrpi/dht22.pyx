@@ -8,6 +8,8 @@ cimport numpy as np
 
 np.import_array()
 
+import time
+
 ############################
 
 cdef extern from 'wiringPi/wiringPi.h':
@@ -52,48 +54,49 @@ cdef int PWM_MODE_BAL = 1
 
 #######################################
 
-# Python extensions for wiringPi library functions.
-cpdef _wiringPiSetup():
-    return wiringPiSetup()
+def timing_example(int time_run, unsigned int delay):
+    """
+    time_run in seconds.
+    """
 
-cpdef _wiringPiSetupSys():
-    return wiringPiSetupSys()
+    val = wiringPiSetupGpio()
+    
+    
+    if val < 0:
+        raise Exception('Problem seting up WiringPI.')
 
-cpdef _wiringPiSetupGpio():
-    return wiringPiSetupGpio()
+    cdef int pin_switch = 17
+    
+    pinMode(pin_switch, INPUT)
 
-cpdef _wiringPiSetupPiFace():
-    return wiringPiSetupPiFace()
+    pullUpDnControl(pin_switch, PUD_DOWN)
 
-
-cpdef _pinMode(int pin, int mode):
-    pinMode(pin, mode)
-
-cpdef _digitalRead(int pin):
-    return digitalRead(pin)
-
-cpdef _digitalWrite(int pin, int value):
-    digitalWrite(pin, value)
-
-cpdef _pullUpDnControl(int pin, int pud):
-    pullUpDnControl(pin, pud)
-
-cpdef _setPadDrive(int group, int value):
-    setPadDrive(group, value)
-
-
-cpdef _pwmWrite(int pin, int value):
-    pwmWrite(pin, value)
-
-cpdef _pwmSetMode(int mode):
-    pwmSetMode(mode)
-
-cpdef _pwmSetRange(unsigned int range):
-    pwmSetRange(range)
-
-
-cpdef _delayMicroseconds(unsigned int howLong):
-    delayMicroseconds(howLong)
-
-cpdef _millis():
-    return millis()
+    
+    cdef int time_start
+    cdef int time_elapsed
+    cdef int num_cycles
+    cdef int time_now
+    
+    time_run *= 1000 # Convert to milliseconds.
+    time_start = millis()
+    time_elapsed = 0
+    num_cycles = 0
+    
+    while time_elapsed < time_run:
+        time_now = millis()
+        time_elapsed = time_now - time_start
+        num_cycles += 1
+        
+        # Read from switch.
+        val = digitalRead(pin_switch)
+        val = digitalRead(pin_switch)
+        val = digitalRead(pin_switch)
+        
+        delayMicroseconds(delay)
+        
+    dt = float(time_run) / float(num_cycles) *1.e3
+    print(dt)
+    
+    # Done
+    return num_cycles
+    
