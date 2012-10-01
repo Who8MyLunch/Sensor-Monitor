@@ -54,18 +54,82 @@ cdef int PWM_MODE_BAL = 1
 
 #######################################
 
+
+ 
+def read(int pin_data):
+    """
+    Read data from DHT22 sensor.
+    """
+
+    # Storage.
+    num_data = 10000
+    data = np.zeros(num_data, dtype=np.int)
+    cdef int [:] data_view = data
+
+    #
+    # Send start signal to sensor.
+    #
+    
+    # Set pin to output mode.
+    pinMode(pin_data, OUTPUT)
+    
+    # Set pin low.
+    digitalWrite(pin_data, LOW)
+    
+    # Wait 20 milliseconds.
+    delayMicroseconds(20)
+    
+    # Set pin high.
+    digitalWrite(pin_data, HIGH)
+    
+    #
+    # Read response from sensor.
+    #
+    pinMode(pin_data, INPUT)
+
+    # Main loop reading from sensor.
+    ok = True
+    cdef int val
+    cdef int k = 0
+    while ok:
+        val = digitalRead(pin_data)
+        data_view[k] = val
+
+        
+        # End of loop.
+        if k >= num_data-10:
+            break
+            
+        k += 1
+        
+        
+        
+        
+    # Done.
+    return data
+    
+    
+        
+##########################################
+
 def timing_example(int time_run, unsigned int delay):
     """
     time_run in seconds.
+    
+    cython arraview: http://docs.cython.org/src/userguide/memoryviews.html
+    
     """
 
     val = wiringPiSetupGpio()
+    
+    data = np.zeros(100, dtype=np.int)
+    cdef int [:] data_view = data
     
     
     if val < 0:
         raise Exception('Problem seting up WiringPI.')
 
-    cdef int pin_switch = 17
+    cdef int pin_switch = 21
     
     pinMode(pin_switch, INPUT)
 
@@ -92,6 +156,8 @@ def timing_example(int time_run, unsigned int delay):
         val = digitalRead(pin_switch)
         val = digitalRead(pin_switch)
         
+        data_view[0] = val
+        
         delayMicroseconds(delay)
         
     dt = float(time_run) / float(num_cycles) *1.e3
@@ -100,3 +166,6 @@ def timing_example(int time_run, unsigned int delay):
     # Done
     return num_cycles
     
+    
+    
+   

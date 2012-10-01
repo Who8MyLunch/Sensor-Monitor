@@ -4,9 +4,11 @@ from __future__ import division, print_function, unicode_literals
 import time
 
 import gpio
+import dht22
+
 import numpy as np
 
-def work():
+def basic_example():
     """
     Just testing!
     """
@@ -55,6 +57,8 @@ def work():
         for pin in pins_led:
             value_rnd = np.random.random_integers(0, 1)
             gpio.digitalWrite(pin, value_rnd)
-        
+
+            
+            
 if __name__ == '__main__':
     work()
