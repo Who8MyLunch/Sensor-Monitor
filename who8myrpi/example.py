@@ -3,6 +3,7 @@ from __future__ import division, print_function, unicode_literals
 
 import time
 
+import data_io as io
 import gpio
 import dht22
 
@@ -51,7 +52,6 @@ def basic_example():
             time_delta *= 0.9
             print(time_delta)
             
-        
             
         # Set LEDs.
         for pin in pins_led:
@@ -60,5 +60,18 @@ def basic_example():
 
             
             
+def read_sensor():
+    pin = 21
+    delta_time = 0
+    
+    values = dht22.read(pin, delta_time)
+    f = 'data.txt'
+    np.savetxt(f, values)
+    
+    # Done.
+    
+    
+    
+            
 if __name__ == '__main__':
-    work()
+    read_sensor()
