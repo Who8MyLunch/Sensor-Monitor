@@ -58,23 +58,8 @@ def blinking():
             value_rnd = np.random.random_integers(0, 1)
             gpio.digitalWrite(pin, value_rnd)
 
-            
-            
-def read_sensor():
-    pin = 21
-    delta_time = 0
-    
-    values = dht22.read(pin, delta_time)
-    f = 'data.txt'
-    np.savetxt(f, values)
-    
-    return values
-    # Done.
-    
-    
-    
+                        
             
 if __name__ == '__main__':
-    values = read_sensor()
-    # blinking()
+    blinking()
     

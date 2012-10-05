@@ -54,15 +54,16 @@ cdef int PWM_MODE_BAL = 1
 
 #######################################
 
-cdef int count_ticks_low_high(int pin_data, int delta_time):
+cdef int read_bit(int pin_data, int delta_time):
     """
     Number of ticks that signal stays down.
+    If timeout then return -1.
     """
     cdef int count_timeout = 1000000
     cdef int count_wait = 0
-    cdef int count_high = 0
     cdef int count_low = 0
-    cdef int value = 0
+    cdef int count_high = 0
+    cdef int bit = 0
     
     # While not ready.
     while digitalRead(pin_data) == HIGH:
@@ -85,10 +86,12 @@ cdef int count_ticks_low_high(int pin_data, int delta_time):
             return 0
             
     # Determine signal value.
-    value = count_high - count_low
+    diff = count_high - count_low
+    
+    bit = 0 if diff < 0 else 1
     
     # Done.
-    return value
+    return bit
 
     
         
@@ -108,7 +111,7 @@ def read(int pin_data, int delta_time):
     cdef int [:] data_view = data
 
     cdef int count = 0
-    cdef int value = 0
+    cdef int bit = 0
     
     #
     # Send start signal to sensor.
@@ -121,26 +124,29 @@ def read(int pin_data, int delta_time):
     digitalWrite(pin_data, LOW)
 
     # Wait 10 milliseconds, long enough for sensor to see start signal.
+    # 10 miliseconds or 10 microseconds?!?!?
     delayMicroseconds(10)
 
     # Set pin high, indicate ready to receive data from sensor.
     digitalWrite(pin_data, HIGH)
     
     #
-    # Read responses from sensor.
+    # Set pin to input mode, read responses from sensor.
     #
     pinMode(pin_data, INPUT)
 
     # Main loop reading from sensor.
     while count < num_data:
-        value = count_ticks_low_high(pin_data, delta_time)
-        if value == 0:
+        bit = read_bit(pin_data, delta_time)
+        if bit < 0:
             break
             
-        data_view[count] = value
+        data_view[count] = bit
         count += 1
 
 
+    data = data[:count]
+    
     # Done.
     return data
 
