@@ -41,6 +41,15 @@ ext_gpio = Extension('_gpio', source_files,
                      extra_compile_args=extra_compile_args,
                      extra_link_args=extra_link_args)
 
+# Timing example.
+source_files = ['who8myrpi/measure_timing.pyx']  + source_wiringPi
+
+ext_timing = Extension('measure_timing', source_files,
+                       language='c++',
+                       include_dirs=include_dirs,
+                       extra_compile_args=extra_compile_args,
+                       extra_link_args=extra_link_args)
+
 # DHT22 sensor interface.
 source_files = ['who8myrpi/dht22.pyx']  + source_wiringPi
 
@@ -59,7 +68,7 @@ setup(name='Who8MyRPi',
       packages=find_packages(),
       package_data={'': ['*.txt', '*.md', '*.cpp', '*.pyx', '*.pxd']},
       cmdclass={'build_ext':build_ext},
-      ext_modules=[ext_gpio, ext_dht22],
+      ext_modules=[ext_gpio, ext_dht22, ext_timing],
 
       # Metadata
       version=version,

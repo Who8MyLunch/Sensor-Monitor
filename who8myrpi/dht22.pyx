@@ -54,6 +54,46 @@ cdef int PWM_MODE_BAL = 1
 
 #######################################
 
+
+def read_raw(int pin_data, int time_max):
+    """
+    Read raw data stream from sensor.
+    time_max == maximum number of milliseconds during which to measure.
+    """
+    
+    # Storage.
+    cdef int num_data = 1000000 # will be trimmed down prior to returning data to caller.
+
+    # data_time = np.zeros(num_data, dtype=np.int)
+    data_signal = np.zeros(num_data, dtype=np.int)
+
+    # cdef int [:] data_time_view = data_time
+    cdef int [:] data_signal_view = data_signal
+
+    cdef int time_start = millis()
+    
+    # Main loop reading from sensor.
+    cdef int count = 0
+    cdef int value_sensor
+    cdef int value_time
+    cdef int time_delta = 0
+    while count < num_data and time_delta < time_max:
+        value_time = millis()
+        value_sensor = digitalRead(pin_data)
+        
+        data_signal_view[count] = value_sensor
+
+        time_delta = value_time - time_start
+        count += 1
+
+    # Finish.
+    data_signal = data_signal[:count]
+    
+    # Done.
+    return data_signal
+    
+    
+    
 cdef int read_bit(int pin_data, int delta_time):
     """
     Number of ticks that signal stays down.
@@ -149,61 +189,4 @@ def read(int pin_data, int delta_time=1):
 
     # Done.
     return data_bits
-
-
-
-##########################################
-
-def timing_example(int time_run, unsigned int delay):
-    """
-    time_run in seconds.
-
-    cython arraview: http://docs.cython.org/src/userguide/memoryviews.html
-
-    """
-    val = wiringPiSetupGpio()
-    if val < 0:
-        raise Exception('Problem seting up WiringPI.')
-
-    data = np.zeros(100, dtype=np.int)
-    cdef int [:] data_view = data
-
-    cdef int pin_switch = 21
-
-    pinMode(pin_switch, INPUT)
-
-    pullUpDnControl(pin_switch, PUD_DOWN)
-
-    cdef int time_start
-    cdef int time_elapsed
-    cdef int num_cycles
-    cdef int time_now
-
-    time_run *= 1000 # Convert to milliseconds.
-    time_start = millis()
-    time_elapsed = 0
-    num_cycles = 0
-
-    while time_elapsed < time_run:
-        time_now = millis()
-        time_elapsed = time_now - time_start
-        num_cycles += 1
-
-        # Read from switch.
-        val = digitalRead(pin_switch)
-        val = digitalRead(pin_switch)
-        val = digitalRead(pin_switch)
-
-        # data_view[0] = val
-        data[0] = val
-
-        delayMicroseconds(delay)
-
-    dt = float(time_run) / float(num_cycles) *1.e3
-    print(dt)
-
-    # Done
-    return num_cycles
-
-
 
