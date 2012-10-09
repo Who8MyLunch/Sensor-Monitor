@@ -98,15 +98,16 @@ def read_raw(int pin_data, int num_data=4000, int delay=1):
     data_signal = np.zeros(num_data, dtype=np.int)
     cdef int [:] data_signal_view = data_signal
 
-    # Send start signal to the sensor.
-    send_start(pin_data)
-
-    # Main loop reading from sensor.
     cdef int count = 0
     cdef int value_sensor
 
     cdef int time_stop = 0
     cdef int time_start = millis()
+
+    # Send start signal to the sensor.
+    send_start(pin_data)
+
+    # Main loop reading from sensor.
     while count < num_data:
         delayMicroseconds(delay)
         
@@ -132,56 +133,61 @@ def read_raw(int pin_data, int num_data=4000, int delay=1):
     if np.min(data_signal) == 1:
         print('Problem reading data from sensor on pin %d.  All data == 1' % pin_data)
 
+    # Finish.
+    info = {'sample_time': sample_time,
+            'count': count}
+            
     # Done.
-    return data_signal
+    return data_signal, info
 
 
 
-cdef int read_single_bit(int pin_data, int delta_time):
+cdef int read_single_bit(int pin_data, int delay):
     """
     Number of ticks that signal stays down.
     If timeout then return -1.
     """
-    cdef int count_timeout = 1000000
+    cdef int count_timeout = 10000
     cdef int count_wait = 0
     cdef int count_low = 0
     cdef int count_high = 0
-    cdef int bit = 0
+    cdef int bit_value = 0
 
     # While not ready.
     while digitalRead(pin_data) == HIGH:
-        delayMicroseconds(delta_time)
+        delayMicroseconds(delay)
         count_wait += 1
         if count_wait >= count_timeout:
-            return 0
+            return -1
 
-    # While LOW, indicate new signal bit.
+    # While LOW, indicates new signal bit.
     while digitalRead(pin_data) == LOW:
-        delayMicroseconds(delta_time)
+        delayMicroseconds(delay)
         count_low += 1
+        if count_low >= count_timeout:
+            return -2
 
     # While HIGH, duration of HIGH indicates bit value, 0 or 1.
     while digitalRead(pin_data) == HIGH:
-        delayMicroseconds(delta_time)
+        delayMicroseconds(delay)
         count_high += 1
-
         if count_high >= count_timeout:
-            return 0
+            return -3
 
     # Determine signal value.
     diff = count_high - count_low
 
-    bit = 0 if diff < 0 else 1
+    bit_value = 0 if diff < 0 else 1
 
     # Done.
-    return bit
+    return bit_value
 
 
 
-def read_bits(int pin_data, int delta_time=0):
+def read_bits(int pin_data, int delay=1):
     """
     Read data from DHT22 sensor.
-    delta_time = wait time between polling sensor, microseconds.
+    delay = wait time between polling sensor, microseconds.
     """
 
     val = wiringPiSetupGpio()
@@ -201,21 +207,26 @@ def read_bits(int pin_data, int delta_time=0):
 
     # Read interpreted data bits.
     while count < num_data:
-        bit = read_single_bit(pin_data, delta_time)
+        bit = read_single_bit(pin_data, delay)
         if bit < 0:
             # Problem reading bit value, exit loop.
+            print('error reading bit: %s' % bit)
+            print('count')
             break
 
         data_view[count] = bit
         count += 1
 
+    if count == 0:
+        raise Exception('Problem reading data from sensor.  Count == 0.')
+        
     # Limit to just the data bits recorded.
     data = data[:count]
 
     first = data[0]
-    signal = data[1:41]
+    bits = data[1:41]
     tail = data[41:]
 
     # Done.
-    return first, signal, tail
+    return first, bits, tail
 
