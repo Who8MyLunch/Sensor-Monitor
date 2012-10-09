@@ -3,9 +3,7 @@ from __future__ import division, print_function, unicode_literals
 
 import time
 
-import data_io as io
 import gpio
-import dht22
 
 import numpy as np
 

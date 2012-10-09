@@ -28,6 +28,7 @@ cdef extern from 'wiringPi/wiringPi.h':
     cdef void pwmWrite(int pin, int value)
     cdef void pwmSetRange(unsigned int range)
 
+    cdef void delay(unsigned int howLong)
     cdef void delayMicroseconds(unsigned int howLong)
     cdef unsigned int millis()
 
@@ -55,46 +56,88 @@ cdef int PWM_MODE_BAL = 1
 #######################################
 
 
-def read_raw(int pin_data, int time_max):
+cdef send_start(int pin_data):
+    """
+    Send start signal to sensor.
+
+    The calling program must have already initialized the GPIO system by
+    calling val = wiringPiSetupGpio().
+    """
+
+    # Set pin to output mode.
+    # Set pin low.
+    # Manual indicates must stay low for 1 - 10 ms.
+    # Wait 10 milliseconds, long enough for sensor to see start signal.
+    pinMode(pin_data, OUTPUT)
+    digitalWrite(pin_data, LOW)
+    delayMicroseconds(10*1000)
+
+    # Set pin high to end start signal.  Indicate ready to receive data from sensor.
+    # Can wait 20 - 40 microseconds before receiving response back from sensor.
+    digitalWrite(pin_data, HIGH)
+    delayMicroseconds(1)
+
+    # Switch pin back to input so we can read results from it in the next step.
+    pinMode(pin_data, INPUT)
+
+    # Done.
+
+
+
+def read_raw(int pin_data, int num_data=4000, int delay=1):
     """
     Read raw data stream from sensor.
-    time_max == maximum number of milliseconds during which to measure.
+    num_data == number of data measurements to make.
     """
-    
-    # Storage.
-    cdef int num_data = 1000000 # will be trimmed down prior to returning data to caller.
 
-    # data_time = np.zeros(num_data, dtype=np.int)
+    val = wiringPiSetupGpio()
+    if val < 0:
+        raise Exception('Problem seting up WiringPI.')
+
+    # Setup.
     data_signal = np.zeros(num_data, dtype=np.int)
-
-    # cdef int [:] data_time_view = data_time
     cdef int [:] data_signal_view = data_signal
 
-    cdef int time_start = millis()
-    
+    # Send start signal to the sensor.
+    send_start(pin_data)
+
     # Main loop reading from sensor.
     cdef int count = 0
     cdef int value_sensor
-    cdef int value_time
-    cdef int time_delta = 0
-    while count < num_data and time_delta < time_max:
-        value_time = millis()
-        value_sensor = digitalRead(pin_data)
+
+    cdef int time_stop = 0
+    cdef int time_start = millis()
+    while count < num_data:
+        delayMicroseconds(delay)
         
+        value_sensor = digitalRead(pin_data)
+
         data_signal_view[count] = value_sensor
 
-        time_delta = value_time - time_start
         count += 1
 
+
     # Finish.
+    time_stop = millis()
+    cdef float sample_time = float(time_stop - time_start) / float(count) * 1000.
+
+    print('finish')
+    print('count: %s' % count)
+    print('sample_time: %s (microseconds)' % sample_time)
+    print('time_start: %s' % time_start)
+    print('time_stop:  %s' % time_stop)
+
     data_signal = data_signal[:count]
-    
+
+    if np.min(data_signal) == 1:
+        print('Problem reading data from sensor on pin %d.  All data == 1' % pin_data)
+
     # Done.
     return data_signal
-    
-    
-    
-cdef int read_bit(int pin_data, int delta_time):
+
+
+
+cdef int read_single_bit(int pin_data, int delta_time):
     """
     Number of ticks that signal stays down.
     If timeout then return -1.
@@ -135,8 +178,7 @@ cdef int read_bit(int pin_data, int delta_time):
 
 
 
-
-def read(int pin_data, int delta_time=1):
+def read_bits(int pin_data, int delta_time=0):
     """
     Read data from DHT22 sensor.
     delta_time = wait time between polling sensor, microseconds.
@@ -148,45 +190,32 @@ def read(int pin_data, int delta_time=1):
 
     # Storage.
     cdef int num_data = 50
-    data_bits = np.zeros(num_data, dtype=np.int)
-    cdef int [:] data_bits_view = data_bits
+    data = np.zeros(num_data, dtype=np.int)
+    cdef int [:] data_view = data
 
     cdef int count = 0
     cdef int bit = 0
 
-    #
-    # Send start signal to sensor.
-    #
+    # Send start signal to the sensor.
+    send_start(pin_data)
 
-    # Set pin to output mode.
-    # Set pin low.
-    # Manual indicates must stay low for 1 - 10 ms.
-    # Wait 10 milliseconds, long enough for sensor to see start signal.
-    # 10 miliseconds or 10 microseconds?!?!?
-    pinMode(pin_data, OUTPUT)
-    digitalWrite(pin_data, LOW)
-    delayMicroseconds(10)
-
-    # Set pin high to end start signal.  Indicate ready to receive data from sensor.
-    # Set pin mode to input.
-    # Can wait 20 - 40 microseconds before receiving response back from sensor.
-    digitalWrite(pin_data, HIGH)
-    # delayMicroseconds(20)   # I think my code is flexible enough that I do not need to explicitlt wait here.
-    pinMode(pin_data, INPUT)
-
-    # Main loop reading from sensor.
+    # Read interpreted data bits.
     while count < num_data:
-        bit = read_bit(pin_data, delta_time)
+        bit = read_single_bit(pin_data, delta_time)
         if bit < 0:
             # Problem reading bit value, exit loop.
             break
 
-        data_bits_view[count] = bit
+        data_view[count] = bit
         count += 1
 
     # Limit to just the data bits recorded.
-    data_bits = data_bits[:count]
+    data = data[:count]
+
+    first = data[0]
+    signal = data[1:41]
+    tail = data[41:]
 
     # Done.
-    return data_bits
+    return first, signal, tail
 

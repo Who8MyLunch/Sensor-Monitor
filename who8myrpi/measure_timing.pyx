@@ -75,32 +75,49 @@ def timing_example(int time_run, unsigned int delay):
     pullUpDnControl(pin_switch, PUD_DOWN)
 
     cdef int time_start
+    cdef float time_start_py
+
     cdef int time_elapsed
+    cdef float time_elapsed_py
+
     cdef int num_cycles
+
     cdef int time_now
+    cdef float time_now_py
+    cdef int value
 
     time_run *= 1000 # Convert to milliseconds.
     time_start = millis()
+    time_start_py = time.clock()
+
     time_elapsed = 0
     num_cycles = 0
 
     while time_elapsed < time_run:
         time_now = millis()
+        time_now_py = time.clock()
+
         time_elapsed = time_now - time_start
+        time_elapsed_py = time_now_py - time_start_py
+
         num_cycles += 1
 
         # Read from switch.
-        val = digitalRead(pin_switch)
-        val = digitalRead(pin_switch)
-        val = digitalRead(pin_switch)
+        value = digitalRead(pin_switch)
+        # value = digitalRead(pin_switch)
+        # value = digitalRead(pin_switch)
 
-        # data_view[0] = val
-        data[0] = val
+        data_view[0] = value
 
-        delayMicroseconds(delay)
+        # Delay.
+        # delayMicroseconds(delay)
+        
 
-    dt = float(time_run) / float(num_cycles) *1.e3
-    print(dt)
+    dt = float(time_elapsed) / float(num_cycles) *1.e3
+    dt_py = time_elapsed_py / float(num_cycles) * 1.e6
+
+    print('sample time:      %f microseconds' % dt)
+    print('sample time (py): %f microseconds' % dt_py)
 
     # Done
     return num_cycles

@@ -1,12 +1,13 @@
 
 from __future__ import division, print_function, unicode_literals
 
+import numpy as np
 import data_io as io
+
 import dht22
 
-import numpy as np
-
-
+####################
+# Helper functions.
 def c2f(C):
     """
     Convert Celcius to Fahrenheit.
@@ -21,22 +22,42 @@ def f2c(F):
     C = (F - 32.) * 5./9.
     return C
     
-
+    
+##########################
 
 def read_sensor():
-    pin = 21
-    delta_time = 0
+    pin_data = 21
+    raw = True
     
-    values = dht22.read(pin, delta_time)
-    f = 'data.txt'
-    np.savetxt(f, values)
+    values = dht22.read(pin_data, raw=raw)
+    # first, signal, tail = values
+    # f = 'sensor_data.npz'
+    # io.write(f, values)
     
     return values
     # Done.
     
     
     
-            
 if __name__ == '__main__':
-    values = read_sensor()
+
+    # first, signal, tail = read_sensor()
+    # H = signal[:16]
+    # T = signal[16:32]
+    # check = signal[32:]
+    
+    print('\nreading')
+    
+    pin_data = 21
+    num_data = 25000
+    delay = 1
+    
+    data = dht22.read_raw(pin_data)
+
+    print('\nwriting to file')
+    
+    f = 'sensor_data.npz'
+    io.write(f, data)
+    
+    print('\ndone')
     
