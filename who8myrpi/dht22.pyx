@@ -13,24 +13,24 @@ import time
 ############################
 
 cdef extern from 'wiringPi/wiringPi.h':
-    cdef int wiringPiSetup()
-    cdef int wiringPiSetupSys()
-    cdef int wiringPiSetupGpio()
-    cdef int wiringPiSetupPiFace()
+    cdef int wiringPiSetup() nogil
+    cdef int wiringPiSetupSys() nogil
+    cdef int wiringPiSetupGpio() nogil
+    cdef int wiringPiSetupPiFace() nogil
 
-    cdef void pinMode(int pin, int mode)
-    cdef int  digitalRead(int pin)
-    cdef void digitalWrite(int pin, int value)
-    cdef void pullUpDnControl(int pin, int pud)
-    cdef void setPadDrive(int group, int value)
+    cdef void pinMode(int pin, int mode) nogil
+    cdef int  digitalRead(int pin) nogil
+    cdef void digitalWrite(int pin, int value) nogil
+    cdef void pullUpDnControl(int pin, int pud) nogil
+    cdef void setPadDrive(int group, int value) nogil
 
-    cdef void pwmSetMode(int mode)
-    cdef void pwmWrite(int pin, int value)
-    cdef void pwmSetRange(unsigned int range)
+    cdef void pwmSetMode(int mode) nogil
+    cdef void pwmWrite(int pin, int value) nogil
+    cdef void pwmSetRange(unsigned int range) nogil
 
-    cdef void delay(unsigned int howLong)
-    cdef void delayMicroseconds(unsigned int howLong)
-    cdef unsigned int millis()
+    cdef void delay(unsigned int howLong) nogil
+    cdef void delayMicroseconds(unsigned int howLong) nogil
+    cdef unsigned int millis() nogil
 
 
 # Constants.
@@ -56,7 +56,7 @@ cdef int PWM_MODE_BAL = 1
 #######################################
 
 
-cdef send_start(int pin_data):
+cdef send_start(int pin_data) nogil:
     """
     Send start signal to sensor.
 
@@ -83,7 +83,8 @@ cdef send_start(int pin_data):
     # Done.
 
 
-
+@cython.boundscheck(False)
+@cython.wraparound(False)
 def read_raw(int pin_data, int num_data=4000, int delay=1):
     """
     Read raw data stream from sensor.
@@ -99,7 +100,7 @@ def read_raw(int pin_data, int num_data=4000, int delay=1):
     cdef int [:] data_signal_view = data_signal
 
     cdef int count = 0
-    cdef int value_sensor
+    cdef int value_sensor = 0
 
     cdef int time_stop = 0
     cdef int time_start = millis()
@@ -108,14 +109,15 @@ def read_raw(int pin_data, int num_data=4000, int delay=1):
     send_start(pin_data)
 
     # Main loop reading from sensor.
-    while count < num_data:
-        delayMicroseconds(delay)
-        
-        value_sensor = digitalRead(pin_data)
+    with nogil:
+        while count < num_data:
+            delayMicroseconds(delay)
+            
+            value_sensor = digitalRead(pin_data)
 
-        data_signal_view[count] = value_sensor
+            data_signal_view[count] = value_sensor
 
-        count += 1
+            count += 1
 
 
     # Finish.
@@ -142,7 +144,7 @@ def read_raw(int pin_data, int num_data=4000, int delay=1):
 
 
 
-cdef int read_single_bit(int pin_data, int delay):
+cdef int read_single_bit(int pin_data, int delay) nogil:
     """
     Number of ticks that signal stays down.
     If timeout then return -1.
@@ -152,6 +154,7 @@ cdef int read_single_bit(int pin_data, int delay):
     cdef int count_low = 0
     cdef int count_high = 0
     cdef int bit_value = 0
+    cdef int diff = 0
 
     # While not ready.
     while digitalRead(pin_data) == HIGH:
@@ -184,6 +187,8 @@ cdef int read_single_bit(int pin_data, int delay):
 
 
 
+@cython.boundscheck(False)
+@cython.wraparound(False)
 def read_bits(int pin_data, int delay=1):
     """
     Read data from DHT22 sensor.
@@ -194,28 +199,29 @@ def read_bits(int pin_data, int delay=1):
     if val < 0:
         raise Exception('Problem seting up WiringPI.')
 
-    # Storage.
-    cdef int num_data = 50
-    data = np.zeros(num_data, dtype=np.int)
-    cdef int [:] data_view = data
+    with nogil:
+        # Storage.
+        cdef int num_data = 50
+        data = np.zeros(num_data, dtype=np.int)
+        cdef int [:] data_view = data
 
-    cdef int count = 0
-    cdef int bit = 0
+        cdef int count = 0
+        cdef int bit = 0
 
-    # Send start signal to the sensor.
-    send_start(pin_data)
+        # Send start signal to the sensor.
+        send_start(pin_data)
 
-    # Read interpreted data bits.
-    while count < num_data:
-        bit = read_single_bit(pin_data, delay)
-        if bit < 0:
-            # Problem reading bit value, exit loop.
-            print('error reading bit: %s' % bit)
-            print('count')
-            break
+        # Read interpreted data bits.
+        while count < num_data:
+            bit = read_single_bit(pin_data, delay)
+            if bit < 0:
+                # Problem reading bit value, exit loop.
+                # print('error reading bit: %s' % bit)
+                # print('count')
+                break
 
-        data_view[count] = bit
-        count += 1
+            data_view[count] = bit
+            count += 1
 
     if count == 0:
         raise Exception('Problem reading data from sensor.  Count == 0.')

@@ -6,6 +6,7 @@ import numpy as np
 import data_io as io
 
 import dht22
+import measure_timing
 
 ####################
 # Helper functions.
@@ -95,7 +96,10 @@ if __name__ == '__main__':
     # f = 'sensor_data.npz'
     # io.write(f, data)
     
-    delay = 1
+    dt = measure_timing.timing(pin=21, time_poll=10)
+    print('timing: %.2f' % (dt*1000))
+    
+    delay = 0
     pin_data = 21
 
     # Read bits.
