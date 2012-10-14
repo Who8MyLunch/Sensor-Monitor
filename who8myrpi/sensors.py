@@ -17,6 +17,7 @@ def c2f(C):
     F = C * 9./5. + 32.
     return F
 
+    
 def f2c(F):
     """
     Convert Fahrenheit to Celcius.
@@ -27,26 +28,25 @@ def f2c(F):
 
 ##########################
 
-def read_sensor(pin_data, delay=1):
-    first, bits, tail = dht22.read_bits(pin_data, delay=delay)
+def _read_dht22_single(pin_data, delay=1):
+    """
+    Read temperature and humidity data from sensor.
+    """
+    first, bits = dht22.read_bits(pin_data, delay=delay)
 
     if first != 1:
-        print('fail first != 1')
-        return None, None
-    
-    if len(tail) != 0:
-        print('fail len(tail) != 0')
-        return None, None
+        msg = 'fail first != 1'
+        return None, msg
 
     if len(bits) != 40:
-        print('fail len(bits) != 40')
-        return None, None
+        msg = 'fail len(bits) != 40 [%d]' % len(bits)
+        return None, msg
 
     byte_1_str = ''
     for b in bits[0:8]:
         byte_1_str += str(b)
     byte_1 = np.int(byte_1_str, 2)
-    
+
     byte_2_str = ''
     for b in bits[8:16]:
         byte_2_str += str(b)
@@ -67,27 +67,31 @@ def read_sensor(pin_data, delay=1):
         byte_5_str += str(b)
     byte_5 = np.int(byte_5_str, 2)
 
-
-    RH = (np.left_shift(byte_1, 8) + byte_2) / 10.
-    Tc = (np.left_shift(byte_3, 8) + byte_4) / 10.
-    Tf = c2f(Tc)
-
-    # checksum.
-    print(byte_1, byte_2, byte_3, byte_4)
+    # Checksum.
     val_check = byte_1 + byte_2 + byte_3 + byte_4
     val_check = val_check & 255
-    
-    
-    print(val_check)
-    print(byte_5)
-    
+
+    if val_check == byte_5:
+        # All is OK.
+        RH = (np.left_shift(byte_1, 8) + byte_2) / 10.
+        Tc = (np.left_shift(byte_3, 8) + byte_4) / 10.
+        
+        Tf = c2f(Tc)
+    else:
+        # Data error.
+        msg = 'Fail checksum.'
+        RH, Tf = None, msg
+
     # Done.
     return RH, Tf
 
 
+    
+def monitor 
+
+
 
 if __name__ == '__main__':
-
 
     # Read raw data.
     # print('\nreading raw')
@@ -95,34 +99,39 @@ if __name__ == '__main__':
     # print('\nwriting to file')
     # f = 'sensor_data.npz'
     # io.write(f, data)
-    
-    dt = measure_timing.timing(pin=21, time_poll=10)
-    print('timing: %.2f' % (dt*1000))
-    
-    delay = 0
-    pin_data = 21
+
+
+    delay = 2
+    pin_data = 25
+
+    dt = measure_timing.timing(pin=pin_data, time_poll=10)
+    print('\nTiming: %.2f' % (dt*1000))
+
 
     # Read bits.
-    print('\nread pin %d' % pin_data)
-    RH, T = read_sensor(pin_data, delay=delay)
+    pin_data = 23
+    print('\nRead pin %d' % pin_data)
+    RH, T = read_dht22(pin_data, delay=delay)
     if RH is None:
-        print('error')
+        msg = T
+        print(msg)
     else:
         print('RH: %f' % RH)
         print('T: %f' % T)
 
 
-    pin_data = 22
 
     # Read bits.
-    print('\nread pin %d' % pin_data)
-    RH, T = read_sensor(pin_data, delay=delay)
+    pin_data = 18
+    print('\nRead pin %d' % pin_data)
+    RH, T = read_dht22(pin_data, delay=delay)
 
     if RH is None:
-        print('error')
+        msg = T
+        print(msg)
     else:
         print('RH: %f' % RH)
         print('T: %f' % T)
 
-    print('\ndone')
+    print('\nDone')
 
