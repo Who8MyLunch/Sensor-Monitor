@@ -151,13 +151,15 @@ cdef int read_single_bit(int pin_data, int delay) nogil:
     Number of ticks that signal stays down.
     If timeout then return -1.
     """
-    cdef int count_timeout = 100000
+    cdef int count_timeout = 200000
     cdef int count_wait = 0
     cdef int count_low = 0
     cdef int count_high = 0
     cdef int bit_value = 0
     cdef int diff = 0
 
+    delayMicroseconds(delay)
+    
     # While not ready.
     while digitalRead(pin_data) == HIGH:
         delayMicroseconds(delay)
@@ -227,11 +229,12 @@ def read_bits(int pin_data, int delay=1):
             count += 1
 
     if count == 0:
-        raise Exception('Problem reading data from sensor.  Count == 0.')
+        # raise Exception('Problem reading data from sensor.  Count == 0.  pin_data: %d, bit: %d' % (pin_data, bit) )
+        msg = 'Problem reading data from sensor.  count: 0, pin: %d, bit: %d' % (pin_data, bit)
+        return None, msg
         
     # Limit to just the data bits recorded.
     data = data[:count]
-
     first = data[0]
     bits = data[1:]
 

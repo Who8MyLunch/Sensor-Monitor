@@ -62,13 +62,19 @@ ext_dht22 = Extension('dht22', source_files,
 ###############################
 
 # Do it.
-version = '2012.09.29'
+version = '2012.11.07'
+
+dependency_links = ['http://goo.gl/yeQWX']
+install_requires = ['Who8MyGoogle', 'Data_IO']
 
 setup(name='Who8MyRPi',
       packages=find_packages(),
       package_data={'': ['*.txt', '*.md', '*.cpp', '*.pyx', '*.pxd']},
       cmdclass={'build_ext':build_ext},
       ext_modules=[ext_gpio, ext_dht22, ext_timing],
+
+      install_requires=install_requires,
+      dependency_links=dependency_links,
 
       # Metadata
       version=version,
