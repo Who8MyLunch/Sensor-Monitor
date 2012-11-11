@@ -83,12 +83,14 @@ def bits_to_bytes(bits):
 
 
 
-def read_dht22_single(pin_data, delay=1):
+def read_dht22_single(pin_data, delay=1, pin_led=None):
     """
     Read temperature and humidity data from sensor.
     Just a single sample.  Return None if checksum fails or any other problem.
     """
-    first, bits = dht22.read_bits(pin_data, delay=delay)
+    
+    # Read some bits.
+    first, bits = dht22.read_bits(pin_data, delay=delay, pin_led=pin_led)
 
     if first is None:
         msg = bits
@@ -99,7 +101,6 @@ def read_dht22_single(pin_data, delay=1):
         return None, msg
         
     # Convert recorded bits into data bytes.
-
     if len(bits) == 40:
         # Ok.
         byte_1, byte_2, byte_3, byte_4, ok = bits_to_bytes(bits)
@@ -124,6 +125,9 @@ def read_dht22_single(pin_data, delay=1):
         msg = 'Fail len(bits) != 40 [%d]' % (len(bits))
         return None, msg
 
+    # LED off.
+    
+    
     # Finish.
     if ok:
         # All is OK.
@@ -139,7 +143,7 @@ def read_dht22_single(pin_data, delay=1):
 
 
 
-def read_dht22(data_pins, recording_interval=60., delta_time_wait=2.1):
+def read_dht22(data_pins, recording_interval=60., delta_time_wait=2.1, pin_led=None):
     """
     Read data from dht22 sensor.  Collect data over short time interval.  Return median value.
     Ignore any invalid data values.
@@ -173,7 +177,7 @@ def read_dht22(data_pins, recording_interval=60., delta_time_wait=2.1):
 
         # Loop over sensor pins.
         for k, pin in enumerate(data_pins):
-            value = read_dht22_single(pin)
+            value = read_dht22_single(pin, pin_led=pin_led)
 
             if value[0] is None:
                 # Problem with sensor measurement.
@@ -242,6 +246,8 @@ if __name__ == '__main__':
     time_experiment = 5. * 60. * 60. # seconds.
     pin_data = [4, 17, 21, 22, 18, 23]
     
+    pin_led = 0
+    
     # Timing.
     dt = measure_timing.timing(pin=pin_data[0], time_poll=10)
     print('\nTiming: %.2f' % (dt*1000))
@@ -254,7 +260,7 @@ if __name__ == '__main__':
         time_now = time.time()
         time_run = time_now - time_start
 
-        info_results = read_dht22(pin_data)
+        info_results = read_dht22(pin_data, pin_led=pin_led)
 
         print()
         for info in info_results:

@@ -54,8 +54,22 @@ cdef int PWM_MODE_MS = 0
 cdef int PWM_MODE_BAL = 1
 
 #######################################
+    
+GPIO_IS_SETUP = False
+def SetupGpio():
+    """
+    Do stuff to initialize.
+    """
+    if not globals()['GPIO_IS_SETUP']:
+        val = wiringPiSetupGpio()
+        if val < 0:
+            raise Exception('Problem seting up WiringPI.')
+            
+        globals()['GPIO_IS_SETUP'] = True
 
-
+    # Done.
+    
+    
 cdef int send_start(int pin_data) nogil:
     """
     Send start signal to sensor.
@@ -93,10 +107,8 @@ def read_raw(int pin_data, int num_data=4000, int delay=1):
     num_data == number of data measurements to make.
     """
 
-    val = wiringPiSetupGpio()
-    if val < 0:
-        raise Exception('Problem seting up WiringPI.')
-
+    SetupGpio()
+    
     # Setup.
     data_signal = np.zeros(num_data, dtype=np.int)
     cdef int [:] data_signal_view = data_signal
@@ -196,16 +208,19 @@ cdef int read_single_bit(int pin_data, int delay) nogil:
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def read_bits(int pin_data, int delay=1):
+def read_bits(int pin_data, int delay=1, pin_led=None):
     """
     Read data from DHT22 sensor.
     delay = wait time between polling sensor, microseconds.
     """
 
-    val = wiringPiSetupGpio()
-    if val < 0:
-        raise Exception('Problem seting up WiringPI.')
+    SetupGpio()
 
+    # LED on.
+    if pin_led is not None:
+        pinMode(pin_led, OUTPUT)
+        digitalWrite(pin_led, HIGH)
+        
     # Storage.
     cdef int num_data = 41
     data = np.zeros(num_data, dtype=np.int)
@@ -228,6 +243,10 @@ def read_bits(int pin_data, int delay=1):
             data_view[count] = bit
             count += 1
 
+    # LED of.
+    if pin_led is not None:
+        digitalWrite(pin_led, LOW)
+        
     if count == 0:
         # raise Exception('Problem reading data from sensor.  Count == 0.  pin_data: %d, bit: %d' % (pin_data, bit) )
         msg = 'Problem reading data from sensor.  count: 0, pin: %d, bit: %d' % (pin_data, bit)
