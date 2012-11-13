@@ -1,10 +1,16 @@
 
 from __future__ import division, print_function, unicode_literals
 
+import os
 import time
-import numpy as np
-import data_io as io
+import datetime
 
+import numpy as np
+
+import data_io as io
+import data_cache as cache
+
+# import gpio
 import dht22
 import measure_timing
 
@@ -85,18 +91,18 @@ def bits_to_bytes(bits):
 
 
 
-def read_dht22_single(pin_data, delay=1, pin_led=None):
+def read_dht22_single(pin_data, delay=1):
     """
     Read temperature and humidity data from sensor.
     Just a single sample.  Return None if checksum fails or any other problem.
     """
 
     # Read some bits.
-    first, bits = dht22.read_bits(pin_data, delay=delay, pin_led=pin_led)
+    first, bits = dht22.read_bits(pin_data, delay=delay)
 
     if first is None:
         msg = bits
-        raise Exception(msg)
+        return None, msg
 
     if first != 1:
         msg = 'Fail first != 1'
@@ -106,6 +112,7 @@ def read_dht22_single(pin_data, delay=1, pin_led=None):
     if len(bits) == 40:
         # Ok.
         byte_1, byte_2, byte_3, byte_4, ok = bits_to_bytes(bits)
+        
     # elif len(bits) == 39:
         # # Special logic to attempt to recover from rare problem.
         # # Try a zero.
@@ -139,8 +146,24 @@ def read_dht22_single(pin_data, delay=1, pin_led=None):
     return RH, Tc
 
 
-
-def read_dht22(pins_data, recording_interval=60., delta_time_wait=2.1, pin_ok=None):
+def set_status_led(status, pin_ok, pin_err):
+    if status > 0:
+        # Ok
+        dht22._digitalWrite(pin_ok, 1)
+        dht22._digitalWrite(pin_err, 0)
+    elif status == 0:
+        # Problem.
+        dht22._digitalWrite(pin_ok, 0)
+        dht22._digitalWrite(pin_err, 1)
+    else:
+        # Unknown.
+        dht22._digitalWrite(pin_ok, 0)
+        dht22._digitalWrite(pin_err, 0)
+        
+    # Done.
+    
+    
+def read_dht22(pins_data, pin_ok, pin_err, recording_interval=60., delta_time_wait=2.1, ):
     """
     Read data from dht22 sensor.  Collect data over short time interval.  Return median value.
     Ignore any invalid data values.
@@ -170,17 +193,20 @@ def read_dht22(pins_data, recording_interval=60., delta_time_wait=2.1, pin_ok=No
     time_start = time.time()
     time_run = 0.
     while time_run < recording_interval:
+        set_status_led(-1, pin_ok, pin_err)
         time.sleep(delta_time_wait)
-
+        
         # Loop over sensor pins.
         for k, pin in enumerate(pins_data):
-            value = read_dht22_single(pin, pin_ok=pin_ok)
+            value = read_dht22_single(pin)
 
             if value[0] is None:
+                set_status_led(0, pin_ok, pin_err)
                 # Problem with sensor measurement.
                 message = value[1]
                 # print('pin %2d: problem: %s' % (pin, message))
             else:
+                set_status_led(1, pin_ok, pin_err)
                 time_now = time.time()
                 time_run = time_now - time_start
 
@@ -190,14 +216,17 @@ def read_dht22(pins_data, recording_interval=60., delta_time_wait=2.1, pin_ok=No
                 info_data[k]['Tc'].append(Tc)
                 info_data[k]['time'].append(time_now)
 
+    set_status_led(-1, pin_ok, pin_err)
+    
     # Finish.
+    eps = 1.e-5
     info_results = []
-    for info_data_sample in info_data:
+    for info_data_k in info_data:
 
-        pin = info_data_sample['pin']
-        data_RH = np.asarray(info_data_sample['RH'])
-        data_Tc = np.asarray(info_data_sample['Tc'])
-        data_time = np.asarray(info_data_sample['time'])
+        pin = info_data_k['pin']
+        data_RH = np.asarray(info_data_k['RH'])
+        data_Tc = np.asarray(info_data_k['Tc'])
+        data_time = np.asarray(info_data_k['time'])
 
         data_Tf = c2f(data_Tc)
 
@@ -209,19 +238,25 @@ def read_dht22(pins_data, recording_interval=60., delta_time_wait=2.1, pin_ok=No
                        'Samples': len(data_RH),
                        'Time': np.mean(data_time)}
 
+        if info_sample['RH_std'] < eps:
+            info_sample['RH_std'] = 0.0
+            
+        if info_sample['Tf_std'] < eps:
+            info_sample['Tf_std'] = 0.0
+            
         info_results.append(info_sample)
 
     # Average time stamp over all data observations.
-    val = [info_sample['Time'] for info_sample in info_results]
+    vals = [info_sample['Time'] for info_sample in info_results]
     time_avg = np.mean(vals)
     for info_sample in info_results:
-        info_sample['Time'] = time_avg        
-    
+        info_sample['Time'] = time_avg
+
     # Done.
     return info_results
 
 
-    
+
 def check_pin_connected(pin_data):
     """
     Run some tests to see if data pin appears to be connected to sensor.
@@ -234,49 +269,80 @@ def check_pin_connected(pin_data):
         return True
 
 
-def write_record(fname, info):
+_header = ['pin', 'RH_avg', 'RH_std', 'Tf_avg', 'Tf_std', 'Samples', 'Time']
+def write_record(name, info_results):
     """
     Save experiment data record to file.
     """
-        
-        
-        
-def collect_data(pins_data, pin_ok, name=None):
+    
+    t = info_results[0]['Time']    
+    d = datetime.datetime.utcfromtimestamp(t)
+    time_stamp = d.strftime('%Y-%m-%d-%H-%M-%S')
+    fname = name + '=' + time_stamp + '.csv'
+
+    path = 'data'
+    f = os.path.join(path, fname)
+    
+    data = []
+    for info_sample in info_results:
+        line = [info_sample[k] for k in _header]
+        data.append(line)
+
+    io.write(f, data, header=_header)
+    
+    # Done.
+
+
+def collect_data(pins_data, pin_ok, pin_err, name=None):
     """
     Record data for an experiment from multiple sensors.
     Save data to files.
-    
-    name: experiment name,
-    """
 
+    name: experiment name.
+    """
+    
+    dht22.SetupGpio()
+    
+    # Configure LED status pins.
+    if pin_ok is not None:
+        dht22._pinMode(pin_ok, 1)
+        
+    if pin_err is not None:
+        dht22._pinMode(pin_err, 1)
+        
     if np.isscalar(pins_data):
         pins_data = [pins_data]
-        
+
     if name is None:
-        name = 'dht22'        
+        name = 'dht22'
         for p in pins_data:
             name += '-%02d' % p
-        
+
     # Start recording data.
     print('Begin experiment: %s' % name)
+
     try:
         # Main processing loop.
+        ok = True
         while ok:
-            info_results = read_dht22(pin_data, pin_ok=pin_ok)
+            info_results = read_dht22(pins_data, pin_ok, pin_err)
 
-            print()
-            for info in info_results:
-                value = (info['pin'], info['Time'], info['Samples'], info['RH_avg'])
-                print('pin: %2d, time: %.1f  samples: %2d  RH_avg: %5.2f' % value)
+            write_record(name, info_results)
+            
+            # print()
+            # for info in info_results:
+                # value = (info['pin'], info['Time'], info['Samples'], info['RH_avg'])
+                # print('pin: %2d, time: %.1f  samples: %2d  RH_avg: %5.2f' % value)
 
     except KeyboardInterrupt:
         # End it all when user hits ctrl-c.
+        print()
         print('End experiment: %s' % name)
-        
+
     # Done.
-    
-    
-    
+
+
+
 if __name__ == '__main__':
 
     # Read raw data.
@@ -286,30 +352,34 @@ if __name__ == '__main__':
     # f = 'sensor_data.npz'
     # io.write(f, data)
 
-
     time_experiment = 5. * 60. * 60. # seconds.
-    pin_data = [4, 17, 21, 22, 18, 23]
+    pins_data = [4, 17, 21, 22, 18, 23]
 
     pin_ok = 0
+    pin_err = 1
 
     # Timing.
-    dt = measure_timing.timing(pin=pin_data[0], time_poll=10)
+    dt = measure_timing.timing(pin=pins_data[0], time_poll=10)
     print('\nTiming: %.2f' % (dt*1000))
 
     # Read data over extended time period.
-    print('\nRead from pins %s' % pin_data)
-    time_start = time.time()
-    time_run = 0.
-    while time_run < time_experiment:
-        time_now = time.time()
-        time_run = time_now - time_start
+    print('\nRead from pins %s' % pins_data)
+    
+    collect_data(pins_data, pin_ok, pin_err)
+    
+    
+    # time_start = time.time()
+    # time_run = 0.
+    # while time_run < time_experiment:
+        # time_now = time.time()
+        # time_run = time_now - time_start
 
-        info_results = read_dht22(pin_data, pin_ok=pin_ok)
+        # info_results = read_dht22(pin_data, pin_ok, pin_err)
 
-        print()
-        for info in info_results:
-            value = (info['pin'], info['Time'], info['Samples'], info['RH_avg'])
-            print('pin: %2d, time: %.1f  samples: %2d  RH_avg: %5.2f' % value)
+        # print()
+        # for info in info_results:
+            # value = (info['pin'], info['Time'], info['Samples'], info['RH_avg'])
+            # print('pin: %2d, time: %.1f  samples: %2d  RH_avg: %5.2f' % value)
 
     print('\nDone')
 

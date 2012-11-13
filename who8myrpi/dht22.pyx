@@ -54,7 +54,16 @@ cdef int PWM_MODE_MS = 0
 cdef int PWM_MODE_BAL = 1
 
 #######################################
+
+def _pinMode(int pin, int mode):
+    pinMode(pin, mode)
     
+def _digitalRead(int pin):
+    return digitalRead(pin)
+    
+def _digitalWrite(int pin, int value):
+    digitalWrite(pin, value)
+
 _GPIO_IS_SETUP = False
 def SetupGpio():
     """
@@ -208,18 +217,13 @@ cdef int read_single_bit(int pin_data, int delay) nogil:
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def read_bits(int pin_data, int delay=1, pin_ok=None):
+def read_bits(int pin_data, int delay=1):
     """
     Read data from DHT22 sensor.
     delay = wait time between polling sensor, microseconds.
     """
 
     SetupGpio()
-
-    # LED on.
-    if pin_ok is not None:
-        pinMode(pin_ok, OUTPUT)
-        digitalWrite(pin_ok, HIGH)
         
     # Storage.
     cdef int num_data = 41
@@ -242,10 +246,6 @@ def read_bits(int pin_data, int delay=1, pin_ok=None):
 
             data_view[count] = bit
             count += 1
-
-    # LED off.
-    if pin_ok is not None:
-        digitalWrite(pin_ok, LOW)
         
     if count == 0:
         # raise Exception('Problem reading data from sensor.  Count == 0.  pin_data: %d, bit: %d' % (pin_data, bit) )
