@@ -223,7 +223,7 @@ def read_dht22(pins_data, pin_ok, pin_err, recording_interval=60., delta_time_wa
             info_data[k]['time'].append(time_now)
 
     set_status_led(-1, pin_ok, pin_err)
-
+    
     # Finish.
     eps = 1.e-5
     info_results = []
@@ -240,13 +240,26 @@ def read_dht22(pins_data, pin_ok, pin_err, recording_interval=60., delta_time_wa
         num_valid = len(whr_valid[0])
 
         if num_valid > 0:
-            info_sample = {'pin': pin,
-                           'RH_avg': np.mean(data_RH[whr_valid]),
-                           'RH_std': np.std(data_RH[whr_valid]),
-                           'Tf_avg': np.mean(data_Tf[whr_valid]),
-                           'Tf_std': np.std(data_Tf[whr_valid]),
-                           'Samples': len(data_RH[whr_valid]),
-                           'Time': np.mean(data_time[whr_valid])}
+            RH_avg = np.mean(data_RH[whr_valid])
+            RH_std = np.std(data_RH[whr_valid])
+            Tf_avg = np.mean(data_Tf[whr_valid])
+            Tf_std = np.std(data_Tf[whr_valid])
+            Samples = len(data_RH[whr_valid])
+            Time = np.mean(data_time[whr_valid])
+
+            RH_avg = np.round(RH_avg, 3)
+            RH_std = np.round(RH_std, 3)
+            Tf_avg = np.round(Tf_avg, 3)
+            Tf_std = np.round(Tf_std, 3)
+            Time = np.round(Time, 2)
+                   
+            info_sample = {'pin':    pin,
+                           'RH_avg': RH_avg,
+                           'RH_std': RH_std,
+                           'Tf_avg': Tf_avg,
+                           'Tf_std': Tf_std,
+                           'Samples': Samples,
+                           'Time':   Time}
 
             if info_sample['RH_std'] < eps:
                 info_sample['RH_std'] = 0.0
@@ -256,13 +269,13 @@ def read_dht22(pins_data, pin_ok, pin_err, recording_interval=60., delta_time_wa
 
             info_results.append(info_sample)
         else:
-            print('invalid')
+            print('No valid samples for pin %d' % pin)
 
 
     # Average time stamp over all data observations.
     vals = [info_sample['Time'] for info_sample in info_results]
 
-    time_avg = np.mean(vals)
+    time_avg = np.round(np.mean(vals), 3)
     for info_sample in info_results:
         info_sample['Time'] = time_avg
 
@@ -356,8 +369,10 @@ def collect_data(pins_data, pin_ok, pin_err, sensor_name):
                 # print('pin: %2d, time: %.1f  samples: %2d  RH_avg: %5.2f' % value)
 
     except KeyboardInterrupt:
-        # End it all when user hits ctrl-c.
+        # End it all when user hits ctrl-C.
         print()
+        dht22._pinMode(pin_ok, 0)
+        dht22._pinMode(pin_ok, 0)
         print('End experiment: %s' % sensor_name)
 
     # Done.
