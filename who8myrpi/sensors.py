@@ -10,7 +10,6 @@ import numpy as np
 import data_io as io
 import data_cache as cache
 
-# import gpio
 import dht22
 import measure_timing
 
@@ -223,7 +222,7 @@ def read_dht22(pins_data, pin_ok, pin_err, recording_interval=60., delta_time_wa
             info_data[k]['time'].append(time_now)
 
     set_status_led(-1, pin_ok, pin_err)
-    
+
     # Finish.
     eps = 1.e-5
     info_results = []
@@ -252,7 +251,7 @@ def read_dht22(pins_data, pin_ok, pin_err, recording_interval=60., delta_time_wa
             Tf_avg = np.round(Tf_avg, 3)
             Tf_std = np.round(Tf_std, 3)
             Time = np.round(Time, 2)
-                   
+
             info_sample = {'pin':    pin,
                            'RH_avg': RH_avg,
                            'RH_std': RH_std,
@@ -296,6 +295,7 @@ def check_pin_connected(pin_data):
         return True
 
 
+
 _header = ['pin', 'RH_avg', 'RH_std', 'Tf_avg', 'Tf_std', 'Samples', 'Time']
 def write_record(sensor_name, info_results):
     """
@@ -318,7 +318,7 @@ def write_record(sensor_name, info_results):
     if not os.path.isdir(path_day):
         os.mkdir(path_day)
 
-
+    # Output to file.
     fname = sensor_name + ' - ' + time_stamp + '.csv'
 
     f = os.path.join(path_day, fname)
@@ -333,16 +333,57 @@ def write_record(sensor_name, info_results):
     # Done.
 
 
-def collect_data(pins_data, pin_ok, pin_err, sensor_name):
+def build_summary(info_results, info_summary):
+    """
+    Summary of collected data.
+    """
+    if info_summary is None:
+        info_summary = {}
+
+    for info_sample in info_results:
+        p = info_sample['pin']
+        n = info_sample['Samples']
+
+        if not p in info_summary:
+            info_summary[p] = 0
+
+        info_summary[p] += n
+
+    # Done.
+    return info_summary
+
+
+
+def pretty_status(time_now, info_summary):
+    """
+    Display pretty status update.
+    """
+    d = datetime.datetime.utcfromtimestamp(time_now)
+    time_stamp = d.strftime('%Y-%m-%d - %H-%M-%S')
+
+    pin_count_str = ''
+    for p, n in info_summary.items():
+        s = '%d: %d' % (p, n)
+        pin_count_str += s + ' '
+    
+    msg = '%s: %s' % (time_stamp, pin_count_str)
+    print(msg)
+    
+    # Done.
+    
+
+
+def collect_data(pins_data, pin_ok, pin_err, status_interval=60*15):
     """
     Record data for an experiment from multiple sensors.
     Save data to files.
 
-    name: experiment name.
+    status_interval = seconds between status updates.
     """
 
+    sensor_name = 'dht22'
     dht22.SetupGpio()
-    
+
     # Configure LED status pins.
     if pin_ok is not None:
         dht22._pinMode(pin_ok, 1)
@@ -353,71 +394,47 @@ def collect_data(pins_data, pin_ok, pin_err, sensor_name):
     if np.isscalar(pins_data):
         pins_data = [pins_data]
 
-    # Start recording data.
-    print('Begin experiment: %s' % sensor_name)
+    # Main processing loop.
+    time_zero = time.time()
 
+    recording_interval = 60.
+    delta_time_wait = 2.1
+    info_summary = None
     try:
-        # Main processing loop.
         ok = True
         while ok:
-            info_results = read_dht22(pins_data, pin_ok, pin_err)
+            # Collect data over specified recording interval.
+            info_results = read_dht22(pins_data, pin_ok, pin_err,
+                                      recording_interval=recording_interval,
+                                      delta_time_wait=delta_time_wait)
+
+            # Save data to file.
             write_record(sensor_name, info_results)
 
-            # print()
-            # for info in info_results:
-                # value = (info['pin'], info['Time'], info['Samples'], info['RH_avg'])
-                # print('pin: %2d, time: %.1f  samples: %2d  RH_avg: %5.2f' % value)
+            info_summary = build_summary(info_results, info_summary)
+
+            # Status update.
+            time_now = time.time()
+            time_elapsed = time_now - time_zero
+            if time_elapsed > status_interval:
+                # Status display.
+                pretty_status(time_now, info_summary)
+                
+                # Reset.
+                time_zero = time_now
+                info_summary = None
+
 
     except KeyboardInterrupt:
         # End it all when user hits ctrl-C.
+        dht22._pinMode(pin_ok, 0)
+        dht22._pinMode(pin_ok, 0)
+
         print()
-        dht22._pinMode(pin_ok, 0)
-        dht22._pinMode(pin_ok, 0)
-        print('End experiment: %s' % sensor_name)
+        print('User stop!')
 
     # Done.
-
-
 
 if __name__ == '__main__':
-
-    # Read raw data.
-    # print('\nreading raw')
-    # data, info = dht22.read_raw(pin_data)
-    # print('\nwriting to file')
-    # f = 'sensor_data.npz'
-    # io.write(f, data)
-
-    sensor_name = 'dht22'
+    pass
     
-    pins_data = [4, 17, 21, 22, 18, 23]
-
-    pin_ok = 0
-    pin_err = 1
-
-    # Timing.
-    dt = measure_timing.timing(pin=pins_data[0], time_poll=10)
-    print('\nTiming: %.2f' % (dt*1000))
-
-    # Read data over extended time period.
-    print('\nRead from pins %s' % pins_data)
-
-    collect_data(pins_data, pin_ok, pin_err, sensor_name)
-
-
-    # time_start = time.time()
-    # time_run = 0.
-    # while time_run < time_experiment:
-        # time_now = time.time()
-        # time_run = time_now - time_start
-
-        # info_results = read_dht22(pin_data, pin_ok, pin_err)
-
-        # print()
-        # for info in info_results:
-            # value = (info['pin'], info['Time'], info['Samples'], info['RH_avg'])
-            # print('pin: %2d, time: %.1f  samples: %2d  RH_avg: %5.2f' % value)
-
-    print('\nDone')
-
-    # Done.

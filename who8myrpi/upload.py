@@ -114,123 +114,106 @@ def work():
     """
     Main work function.
     """
-    
-####################################
-# Setup.
-experiment_name = 'Testing F | Six Sensors'
+        
+    ####################################
+    # Setup.
+    experiment_name = 'Testing F | Six Sensors'
 
-column_types = [['Time',        fusion_table.TYPE_DATETIME],
-                ['Temperature', fusion_table.TYPE_NUMBER],
-                ['Humidity',    fusion_table.TYPE_NUMBER],
-                ['Tf_std',      fusion_table.TYPE_NUMBER],
-                ['RH_std',      fusion_table.TYPE_NUMBER],
-                ['Quality_A',     fusion_table.TYPE_NUMBER],
-                ['Quality_B',     fusion_table.TYPE_NUMBER]]
+    column_types = [['Time',        fusion_table.TYPE_DATETIME],
+                    ['Temperature', fusion_table.TYPE_NUMBER],
+                    ['Humidity',    fusion_table.TYPE_NUMBER],
+                    ['Tf_std',      fusion_table.TYPE_NUMBER],
+                    ['RH_std',      fusion_table.TYPE_NUMBER],
+                    ['Quality_A',     fusion_table.TYPE_NUMBER],
+                    ['Quality_B',     fusion_table.TYPE_NUMBER]]
 
-####
-num_batch = 100  # number of files per batch
-time_poll = 5.   # seconds
+    ####
+    num_batch = 100  # number of files per batch
+    time_poll = 5.   # seconds
 
-path_base = os.path.curdir
-pattern_data = os.path.join(path_base, 'data', '201?-??-??', '*.csv')
+    path_base = os.path.curdir
+    pattern_data = os.path.join(path_base, 'data', '201?-??-??', '*.csv')
 
-folder_archive = 'archive'
+    folder_archive = 'archive'
 
-folder_credentials = 'credentials'
-fname_client = 'client_secrets.json'
-api_name = 'fusiontables'
+    folder_credentials = 'credentials'
+    fname_client = 'client_secrets.json'
+    api_name = 'fusiontables'
 
-##############################
-# Do it.
-path_credentials = os.path.join(os.path.abspath(path_base), folder_credentials)
+    ##############################
+    # Do it.
+    path_credentials = os.path.join(os.path.abspath(path_base), folder_credentials)
 
-# Setup Google API credentials.
-print('Establish credentials...')
+    # Setup Google API credentials.
+    print('Establish credentials...')
 
-f = os.path.join(path_credentials, fname_client)
-credentials = authorize.build_credentials(f, api_name)
-service = authorize.build_service(api_name, credentials)
+    f = os.path.join(path_credentials, fname_client)
+    credentials = authorize.build_credentials(f, api_name)
+    service = authorize.build_service(api_name, credentials)
 
-tableId = fusion_table.fetch_table(service, experiment_name, column_types)
+    tableId = fusion_table.fetch_table(service, experiment_name, column_types)
 
-print('Table ID: %s' % tableId)
+    print('Table ID: %s' % tableId)
 
-# Main processing loop.
-try:
-    ok = True
+    # Main processing loop.
+    try:
+        ok = True
 
-    while ok:
-        # List of candidate files.
-        files = glob.glob(pattern_data)
-        files.sort()
+        while ok:
+            # List of candidate files.
+            files = glob.glob(pattern_data)
+            files.sort()
 
-        # Got more than one file?
-        if len(files) > 1:
-            # Leave one behind.
-            files = files[:-1]
-            files = files[:num_batch]
-            num_files = len(files)
+            # Got more than one file?
+            if len(files) > 1:
+                # Leave one behind.
+                files = files[:-1]
+                files = files[:num_batch]
+                num_files = len(files)
 
-            print('Reading files: %d' % num_files)
-            data_proc, header_proc = load_data_files(files)
-            num_rows = len(data_proc)
+                print('Reading files: %d' % num_files)
+                data_proc, header_proc = load_data_files(files)
+                num_rows = len(data_proc)
 
-            response = fusion_table.add_rows(service, tableId, data_proc)
+                response = fusion_table.add_rows(service, tableId, data_proc)
 
-            key = 'numRowsReceived'
-            if key in response:
-                num_uploaded = int(response[key])
+                key = 'numRowsReceived'
+                if key in response:
+                    num_uploaded = int(response[key])
 
-                # Everything worked OK?
-                if num_uploaded == num_rows:
-                    # Move processed files to archive.
-                    for f in files:
-                        path_archive = os.path.join(os.path.dirname(f), folder_archive)
-                        if not os.path.isdir(path_archive):
-                            os.mkdir(path_archive)
+                    # Everything worked OK?
+                    if num_uploaded == num_rows:
+                        # Move processed files to archive.
+                        for f in files:
+                            path_archive = os.path.join(os.path.dirname(f), folder_archive)
+                            if not os.path.isdir(path_archive):
+                                os.mkdir(path_archive)
 
-                        shutil.move(f, path_archive)
+                            shutil.move(f, path_archive)
+                    else:
+                        raise Exception('Problem uploading data: %s' % response)
+
                 else:
                     raise Exception('Problem uploading data: %s' % response)
 
-            else:
-                raise Exception('Problem uploading data: %s' % response)
+            # Pause.
+            time.sleep(time_poll)
 
-        # Pause.
-        time.sleep(time_poll)
-
-        # Repeat.
+            # Repeat.
 
 
-except KeyboardInterrupt:
-    # End it all when user hits ctrl-c.
-    print()
-    print()
-    print('User stop!')
+    except KeyboardInterrupt:
+        # End it all when user hits ctrl-c.
+        print()
+        print()
+        print('User stop!')
 
 
-print('Done')
-
-
-def main():
-    """
-    This is the main application.
-    """
-
-    # Build the parser.
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-t', '--source', default='dist', help='Source file or folder to be processed')
-    parser.add_argument('-C', '--no_clean', default=False, action='store_true', help='Disable clean up')
-
-    # Parse command line input, do the work.
-    args = parser.parse_args()
-    work(args.source, not args.no_clean)
-
-    # Done.
+    print('Done')
 
 
 if __name__ == '__main__':
-    main()
+    pass
 
     
     

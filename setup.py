@@ -10,6 +10,9 @@ from setuptools.extension import Extension
 
 from Cython.Distutils import build_ext
 
+entry_points = {'console_scripts': ['who8myrpi = who8myrpi.who8myrpi:main'
+                                    ]
+                }
 
 
 # WiriingPi source, includes, and options.
@@ -75,6 +78,7 @@ setup(name='Who8MyRPi',
 
       install_requires=install_requires,
       dependency_links=dependency_links,
+      entry_points=entry_points,
 
       # Metadata
       version=version,

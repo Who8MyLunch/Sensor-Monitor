@@ -12,14 +12,31 @@ def run_upload():
     """
     Do the work to upload to my Fusion Table.
     """
-
+    pass
     
-def run_record()
+    
+def run_record():
     """
     Do the work to record data from sensors.
     """
     
-  
+    pins_data = [4, 17, 21, 22, 18, 23]
+
+    pin_ok = 0
+    pin_err = 1
+
+    # Timing.
+    dt = measure_timing.timing(pin=pins_data[0], time_poll=10)
+    print('\nTiming: %.2f us' % (dt*1000))
+
+    # Read data over extended time period.
+    print('\nReading from pins: %s' % pins_data)
+
+    sensors.collect_data(pins_data, pin_ok, pin_err)
+
+    print('End data recording')
+    
+    # Done.
     
     
 
@@ -36,8 +53,10 @@ def main():
     # Parse command line input, do the work.
     args = parser.parse_args()
     
+    print(args)
+    
     if args.upload:
-        run_upload():
+        run_upload()
     elif args.record:
         run_record()
     else:
