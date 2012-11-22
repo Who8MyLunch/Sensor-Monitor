@@ -29,23 +29,11 @@ def reformat_timestamp(seconds):
 
 ##########################################
 
-def load_data_files(files):
+def pretty_status():
     """
-    Load a number of data files, concatenate into single list of rows.
+    Display nice summary of latest work.
     """
-    data_proc = []
-    for f in files:
-        rows_sens, header_sens = io.read(f)
-
-        row_proc, header_proc = process_data(rows_sens, header_sens)
-
-        data_proc.append(row_proc)
-
-    # Done.
-    return data_proc, header_proc
-
-
-
+    
 def process_data(data_sens, header_sens):
     """
     Interpret recorded input data.
@@ -76,7 +64,7 @@ def process_data(data_sens, header_sens):
     # Tf_time_std = [row[ix_Tf_std] for row in data_sens]
 
     # Interpret the data.
-    time_data = times[0]  # assume all time values are the same.
+    time_data = times[0]    # assume all time values are the same.
 
     Tf_data = np.round( np.mean(Tf_time_avg), 2)
     RH_data = np.round( np.mean(RH_time_avg), 2)
@@ -103,7 +91,30 @@ def process_data(data_sens, header_sens):
     # Done.
     return data_out, header_out
 
+    
+    
+def load_data_files(files):
+    """
+    Load a number of data files, concatenate into single list of rows.
+    """
+    data_proc = []
+    for f in files:
+        rows_sens, header_sens = io.read(f)
 
+        row_proc, header_proc = process_data(rows_sens, header_sens)
+
+        data_proc.append(row_proc)
+
+    # Done.
+    return data_proc, header_proc
+
+
+    
+def work():
+    """
+    Main work function.
+    """
+    
 ####################################
 # Setup.
 experiment_name = 'Testing F | Six Sensors'
@@ -199,3 +210,27 @@ except KeyboardInterrupt:
 
 
 print('Done')
+
+
+def main():
+    """
+    This is the main application.
+    """
+
+    # Build the parser.
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-t', '--source', default='dist', help='Source file or folder to be processed')
+    parser.add_argument('-C', '--no_clean', default=False, action='store_true', help='Disable clean up')
+
+    # Parse command line input, do the work.
+    args = parser.parse_args()
+    work(args.source, not args.no_clean)
+
+    # Done.
+
+
+if __name__ == '__main__':
+    main()
+
+    
+    
