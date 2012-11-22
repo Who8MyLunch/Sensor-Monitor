@@ -32,7 +32,13 @@ def f2c(F):
     return C
 
 
+def path_to_module():
+    p = os.path.dirname(os.path.abspath(__file__))
+    return p
+
+    
 ####################################
+
 
 def compute_checksum(byte_1, byte_2, byte_3, byte_4, byte_5):
     """
@@ -148,6 +154,7 @@ def read_dht22_single(pin_data, delay=1):
     return RH, Tc
 
 
+
 def set_status_led(status, pin_ok, pin_err):
     if status > 0:
         # Ok
@@ -163,6 +170,7 @@ def set_status_led(status, pin_ok, pin_err):
         dht22._digitalWrite(pin_err, 0)
 
     # Done.
+
 
 
 def read_dht22(pins_data, pin_ok, pin_err, recording_interval=60., delta_time_wait=2.1):
@@ -297,13 +305,14 @@ def check_pin_connected(pin_data):
 
 
 _header = ['pin', 'RH_avg', 'RH_std', 'Tf_avg', 'Tf_std', 'Samples', 'Time']
-def write_record(sensor_name, info_results):
+def write_record(sensor_name, info_results, path_data=None):
     """
     Save experiment data record to file.
     """
-    path_base = os.path.curdir
-    folder_data = 'data'
-    path_data = os.path.join(path_base, folder_data)
+    if path_data is None:
+        path_base = os.path.curdir
+        folder_data = 'data'
+        path_data = os.path.join(path_base, folder_data)
 
     if not os.path.isdir(path_data):
         os.mkdir(path_data)
@@ -333,7 +342,7 @@ def write_record(sensor_name, info_results):
     # Done.
 
 
-def build_summary(info_results, info_summary):
+def build_summary(info_results, info_summary=None):
     """
     Summary of collected data.
     """
@@ -359,21 +368,21 @@ def pretty_status(time_now, info_summary):
     Display pretty status update.
     """
     d = datetime.datetime.utcfromtimestamp(time_now)
-    time_stamp = d.strftime('%Y-%m-%d - %H-%M-%S')
+    time_stamp = d.strftime('%Y-%m-%d %H:%M:%S')
 
     pin_count_str = ''
     for p, n in info_summary.items():
-        s = '%d: %d' % (p, n)
+        s = '%3d' % (n)
         pin_count_str += s + ' '
-    
-    msg = '%s: %s' % (time_stamp, pin_count_str)
+
+    msg = '%s || %s' % (time_stamp, pin_count_str)
     print(msg)
-    
+
     # Done.
-    
 
 
-def collect_data(pins_data, pin_ok, pin_err, status_interval=60*15):
+
+def collect_data(pins_data, pin_ok, pin_err, path_data, status_interval=60*10):
     """
     Record data for an experiment from multiple sensors.
     Save data to files.
@@ -409,7 +418,7 @@ def collect_data(pins_data, pin_ok, pin_err, status_interval=60*15):
                                       delta_time_wait=delta_time_wait)
 
             # Save data to file.
-            write_record(sensor_name, info_results)
+            write_record(sensor_name, info_results, path_data=path_data)
 
             info_summary = build_summary(info_results, info_summary)
 
@@ -419,7 +428,7 @@ def collect_data(pins_data, pin_ok, pin_err, status_interval=60*15):
             if time_elapsed > status_interval:
                 # Status display.
                 pretty_status(time_now, info_summary)
-                
+
                 # Reset.
                 time_zero = time_now
                 info_summary = None
@@ -437,4 +446,3 @@ def collect_data(pins_data, pin_ok, pin_err, status_interval=60*15):
 
 if __name__ == '__main__':
     pass
-    

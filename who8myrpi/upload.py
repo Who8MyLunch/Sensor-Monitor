@@ -29,11 +29,6 @@ def reformat_timestamp(seconds):
 
 ##########################################
 
-def pretty_status():
-    """
-    Display nice summary of latest work.
-    """
-    
 def process_data(data_sens, header_sens):
     """
     Interpret recorded input data.
@@ -91,8 +86,8 @@ def process_data(data_sens, header_sens):
     # Done.
     return data_out, header_out
 
-    
-    
+
+
 def load_data_files(files):
     """
     Load a number of data files, concatenate into single list of rows.
@@ -109,43 +104,66 @@ def load_data_files(files):
     return data_proc, header_proc
 
 
-    
-def work():
+####################
+
+def build_summary(response, info_summary=None):
     """
-    Main work function.
+    Summary of collected data.
     """
-        
-    ####################################
-    # Setup.
-    experiment_name = 'Testing F | Six Sensors'
+    if info_summary is None:
+        info_summary = {}
 
-    column_types = [['Time',        fusion_table.TYPE_DATETIME],
-                    ['Temperature', fusion_table.TYPE_NUMBER],
-                    ['Humidity',    fusion_table.TYPE_NUMBER],
-                    ['Tf_std',      fusion_table.TYPE_NUMBER],
-                    ['RH_std',      fusion_table.TYPE_NUMBER],
-                    ['Quality_A',     fusion_table.TYPE_NUMBER],
-                    ['Quality_B',     fusion_table.TYPE_NUMBER]]
+    key = 'numRowsReceived'
+    if key in response:
+        numRowsReceived = int(response[key])
+    else:
+        numRowsReceived = 0
 
-    ####
-    num_batch = 100  # number of files per batch
-    time_poll = 5.   # seconds
+    key = 'num_uploaded'
+    if not key in info_summary:
+        info_summary[key] = 0
 
-    path_base = os.path.curdir
-    pattern_data = os.path.join(path_base, 'data', '201?-??-??', '*.csv')
+    info_summary[key] += numRowsReceived
 
-    folder_archive = 'archive'
+    # Done.
+    return info_summary
 
-    folder_credentials = 'credentials'
-    fname_client = 'client_secrets.json'
-    api_name = 'fusiontables'
 
-    ##############################
-    # Do it.
-    path_credentials = os.path.join(os.path.abspath(path_base), folder_credentials)
 
-    # Setup Google API credentials.
-    print('Establish credentials...')
+def pretty_status(time_now, info_summary):
+    """
+    Display pretty status update.
+    """
+    d = datetime.datetime.utcfromtimestamp(time_now)
+    time_stamp = d.strftime('%Y-%m-%d %H:%M:%S')
+
+    num_uploaded_str = '%3d' % info_summary['num_uploaded']
+
+    msg = '%s || %s' % (time_stamp, num_uploaded_str)
+    print(msg)
+
+    # Done.
+
+#######################################3
+
+# Static stuff.
+column_types = [['Time',        fusion_table.TYPE_DATETIME],
+                ['Temperature', fusion_table.TYPE_NUMBER],
+                ['Humidity',    fusion_table.TYPE_NUMBER],
+                ['Tf_std',      fusion_table.TYPE_NUMBER],
+                ['RH_std',      fusion_table.TYPE_NUMBER],
+                ['Quality_A',     fusion_table.TYPE_NUMBER],
+                ['Quality_B',     fusion_table.TYPE_NUMBER]]
+
+fname_client = 'client_secrets.json'
+api_name = 'fusiontables'
+
+#####
+
+def acquire_api_service(experiment_name, path_credentials):
+    """
+    Establish credentials and retrieve API service object.
+    """
 
     f = os.path.join(path_credentials, fname_client)
     credentials = authorize.build_credentials(f, api_name)
@@ -153,9 +171,23 @@ def work():
 
     tableId = fusion_table.fetch_table(service, experiment_name, column_types)
 
-    print('Table ID: %s' % tableId)
+    # Done.
+    return service, tableId
+
+
+
+def upload_data(service, tableId, path_data, num_batch=100, time_poll=5., status_interval=60*10):
+    """
+    Main work function.
+    """
+
+    pattern_data = os.path.join(path_data, '201?-??-??', '*.csv')
+    folder_archive = 'archive'
 
     # Main processing loop.
+    time_zero = time.time()
+    info_summary = None
+
     try:
         ok = True
 
@@ -164,18 +196,19 @@ def work():
             files = glob.glob(pattern_data)
             files.sort()
 
-            # Got more than one file?
-            if len(files) > 1:
-                # Leave one behind.
-                files = files[:-1]
+            # Got some files?
+            if len(files) > 0:
+                time.sleep(0.01)
+                
                 files = files[:num_batch]
                 num_files = len(files)
 
-                print('Reading files: %d' % num_files)
                 data_proc, header_proc = load_data_files(files)
                 num_rows = len(data_proc)
 
                 response = fusion_table.add_rows(service, tableId, data_proc)
+
+                info_summary = build_summary(response, info_summary)
 
                 key = 'numRowsReceived'
                 if key in response:
@@ -196,11 +229,21 @@ def work():
                 else:
                     raise Exception('Problem uploading data: %s' % response)
 
+            # Status update.
+            time_now = time.time()
+            time_elapsed = time_now - time_zero
+            if time_elapsed > status_interval:
+                # Status display.
+                pretty_status(time_now, info_summary)
+
+                # Reset.
+                time_zero = time_now
+                info_summary = None
+
             # Pause.
             time.sleep(time_poll)
 
             # Repeat.
-
 
     except KeyboardInterrupt:
         # End it all when user hits ctrl-c.
@@ -208,12 +251,11 @@ def work():
         print()
         print('User stop!')
 
-
-    print('Done')
+    # Done.
 
 
 if __name__ == '__main__':
     pass
 
-    
-    
+
+
