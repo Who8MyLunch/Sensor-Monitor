@@ -61,7 +61,7 @@ def main():
     path_data = os.path.join(path_to_module(), 'data')
     path_credentials = os.path.join(path_to_module(), 'credentials')
 
-    experiment_name = 'Testing F | Six Sensors'
+    experiment_name = 'Testing G | Six Sensors'
 
     # Build the parser.
     parser = argparse.ArgumentParser()

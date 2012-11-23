@@ -8,6 +8,7 @@ import datetime
 import time
 
 import numpy as np
+import pytz
 
 import data_io as io
 
@@ -17,13 +18,21 @@ import who8mygoogle.authorize as authorize
 ###################################
 # Helpers.
 #
+
 def reformat_timestamp(seconds):
     if type(seconds) == str or type(seconds) == unicode:
         seconds = float(seconds)
+        
+    tz_UTC = pytz.timezone('UTC')
+    dt_UTC = datetime.datetime.fromtimestamp(seconds, pytz.utc)
+    
+    tz_LAX = pytz.timezone('America/Los_Angeles')
+    dt_LAX = dt_UTC.astimezone(tz_LAX)
+    
+    fmt = '%Y-%m-%d %H:%M:%S %Z%z'
+    time_stamp = dt_LAX.strftime(fmt)
 
-    d = datetime.datetime.utcfromtimestamp(seconds)
-    time_stamp = d.strftime('%Y-%m-%d %H:%M:%S')
-
+    # Done.
     return time_stamp
 
 
@@ -93,37 +102,33 @@ def load_data_files(files):
     Load a number of data files, concatenate into single list of rows.
     """
     data_proc = []
+    num_rows = 0
     for f in files:
         rows_sens, header_sens = io.read(f)
+        num_rows += len(rows_sens)
 
         row_proc, header_proc = process_data(rows_sens, header_sens)
 
         data_proc.append(row_proc)
 
     # Done.
-    return data_proc, header_proc
+    return data_proc, header_proc, num_rows
 
 
 ####################
 
-def build_summary(response, info_summary=None):
+def build_summary(num_rows, info_summary=None):
     """
     Summary of collected data.
     """
     if info_summary is None:
         info_summary = {}
 
-    key = 'numRowsReceived'
-    if key in response:
-        numRowsReceived = int(response[key])
-    else:
-        numRowsReceived = 0
-
     key = 'num_uploaded'
     if not key in info_summary:
         info_summary[key] = 0
 
-    info_summary[key] += numRowsReceived
+    info_summary[key] += num_rows
 
     # Done.
     return info_summary
@@ -136,8 +141,9 @@ def pretty_status(time_now, info_summary):
     """
     d = datetime.datetime.utcfromtimestamp(time_now)
     time_stamp = d.strftime('%Y-%m-%d %H:%M:%S')
-
-    num_uploaded_str = '%3d' % info_summary['num_uploaded']
+    
+    key = 'num_uploaded'
+    num_uploaded_str = '%3d' % info_summary[key]
 
     msg = '%s || %s' % (time_stamp, num_uploaded_str)
     print(msg)
@@ -179,6 +185,9 @@ def acquire_api_service(experiment_name, path_credentials):
 def upload_data(service, tableId, path_data, num_batch=100, time_poll=5., status_interval=60*10):
     """
     Main work function.
+    
+    time_poll: seconds
+    status_interval: seconds
     """
 
     pattern_data = os.path.join(path_data, '201?-??-??', '*.csv')
@@ -203,12 +212,12 @@ def upload_data(service, tableId, path_data, num_batch=100, time_poll=5., status
                 files = files[:num_batch]
                 num_files = len(files)
 
-                data_proc, header_proc = load_data_files(files)
+                data_proc, header_proc, num_rows_proc = load_data_files(files)
                 num_rows = len(data_proc)
 
                 response = fusion_table.add_rows(service, tableId, data_proc)
 
-                info_summary = build_summary(response, info_summary)
+                info_summary = build_summary(num_rows_proc, info_summary)
 
                 key = 'numRowsReceived'
                 if key in response:
