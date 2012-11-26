@@ -276,7 +276,8 @@ def read_dht22(pins_data, pin_ok, pin_err, recording_interval=60., delta_time_wa
 
             info_results.append(info_sample)
         else:
-            print('No valid samples for pin %d' % pin)
+            pass
+            # print('No valid samples for pin %d' % pin)
 
 
     # Average time stamp over all data observations.
@@ -342,13 +343,16 @@ def write_record(sensor_name, info_results, path_data=None):
     # Done.
 
 
-def build_summary(info_results, info_summary=None):
+def build_summary(info_results, info_summary=None, pins_data=None):
     """
     Summary of collected data.
     """
     if info_summary is None:
         info_summary = {}
-
+        if pins_data is not None:
+            for p in pins_data:
+                info_summary[p] = 0
+        
     for info_sample in info_results:
         p = info_sample['pin']
         n = info_sample['Samples']
@@ -420,7 +424,7 @@ def collect_data(pins_data, pin_ok, pin_err, path_data, status_interval=60*10):
             # Save data to file.
             write_record(sensor_name, info_results, path_data=path_data)
 
-            info_summary = build_summary(info_results, info_summary)
+            info_summary = build_summary(info_results, info_summary, pins_data=pins_data)
 
             # Status update.
             time_now = time.time()

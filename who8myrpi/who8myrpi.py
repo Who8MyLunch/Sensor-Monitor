@@ -19,14 +19,33 @@ def run_upload(experiment_name, path_data, path_credentials):
     Do the work to upload to my Fusion Table.
     """
 
-    # Setup Google API credentials.
-    print('Acquire API credentials...')
-    service, tableId = upload.acquire_api_service(experiment_name, path_credentials)
+    max_allowed_resets = 5
+    num_resets = 0
+    keep_looping = True
+    while keep_looping:
+        # Setup Google API credentials.
+        print('Acquire API credentials...')
+        service, tableId = upload.acquire_api_service(experiment_name, path_credentials)
 
-    print('Table ID: %s' % tableId)
+        print('Table ID: %s' % tableId)
 
-    upload.upload_data(service, tableId, path_data)
+        num_uploaded = upload.upload_data(service, tableId, path_data, status_interval=60*30)
 
+        if num_uploaded >= 0:
+            # Clean exit.
+            keep_looping = False
+        else:
+            # Reset and try again.
+            num_resets += 1
+
+            if num_resets > max_allowed_resets:
+                keep_looping = False
+                raise Exception('Max number of resets exceeded.')
+            else:
+                keep_looping = True
+                print()
+                print('Reset API connection!')                
+            
     # Done.
 
 
@@ -35,7 +54,7 @@ def run_record(experiment_name, path_data):
     Do the work to record data from sensors.
     """
     # Pins.
-    pins_data = [4, 17, 21, 22, 18, 23]
+    pins_data = [4, 17, 18, 21, 22, 23]
     pin_ok = 0
     pin_err = 1
 
@@ -61,7 +80,7 @@ def main():
     path_data = os.path.join(path_to_module(), 'data')
     path_credentials = os.path.join(path_to_module(), 'credentials')
 
-    experiment_name = 'Testing G | Six Sensors'
+    experiment_name = 'Testing H | Six Sensors'
 
     # Build the parser.
     parser = argparse.ArgumentParser()

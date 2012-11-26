@@ -12,13 +12,15 @@ import pytz
 
 import data_io as io
 
+import who8mygoogle
 import who8mygoogle.fusion_table as fusion_table
 import who8mygoogle.authorize as authorize
+
+import errors
 
 ###################################
 # Helpers.
 #
-
 def reformat_timestamp(seconds):
     if type(seconds) == str or type(seconds) == unicode:
         seconds = float(seconds)
@@ -29,9 +31,10 @@ def reformat_timestamp(seconds):
     tz_LAX = pytz.timezone('America/Los_Angeles')
     dt_LAX = dt_UTC.astimezone(tz_LAX)
     
-    fmt = '%Y-%m-%d %H:%M:%S %Z%z'
+    # fmt = '%Y-%m-%d %H:%M:%S %Z%z'
+    fmt = '%Y-%m-%d %H:%M:%S'
     time_stamp = dt_LAX.strftime(fmt)
-
+    
     # Done.
     return time_stamp
 
@@ -135,10 +138,13 @@ def build_summary(num_rows, info_summary=None):
 
 
 
-def pretty_status(time_now, info_summary):
+def pretty_status(time_now, info_summary=None):
     """
     Display pretty status update.
     """
+    if info_summary is None:
+        info_summary = {'num_uploaded': 0}
+        
     d = datetime.datetime.utcfromtimestamp(time_now)
     time_stamp = d.strftime('%Y-%m-%d %H:%M:%S')
     
@@ -158,8 +164,8 @@ column_types = [['Time',        fusion_table.TYPE_DATETIME],
                 ['Humidity',    fusion_table.TYPE_NUMBER],
                 ['Tf_std',      fusion_table.TYPE_NUMBER],
                 ['RH_std',      fusion_table.TYPE_NUMBER],
-                ['Quality_A',     fusion_table.TYPE_NUMBER],
-                ['Quality_B',     fusion_table.TYPE_NUMBER]]
+                ['Quality_A',   fusion_table.TYPE_NUMBER],
+                ['Quality_B',   fusion_table.TYPE_NUMBER]]
 
 fname_client = 'client_secrets.json'
 api_name = 'fusiontables'
@@ -233,10 +239,10 @@ def upload_data(service, tableId, path_data, num_batch=100, time_poll=5., status
 
                             shutil.move(f, path_archive)
                     else:
-                        raise Exception('Problem uploading data: %s' % response)
+                        raise errors.Who8MyRPiError('Problem uploading data since num_uploaded != num_rows: %s, %s' % (num_uploaded, num_rows))
 
                 else:
-                    raise Exception('Problem uploading data: %s' % response)
+                    raise errors.Who8MyRPiError('Problem uploading data: %s' % response)
 
             # Status update.
             time_now = time.time()
@@ -254,6 +260,14 @@ def upload_data(service, tableId, path_data, num_batch=100, time_poll=5., status
 
             # Repeat.
 
+    except who8mygoogle.Who8MyGoogleError as e: 
+        print('Caught error: %s' % e)
+        return -1
+        
+    except errors.Who8MyRPiError as e:
+        print('Caught error: %s' % e)
+        return -1
+        
     except KeyboardInterrupt:
         # End it all when user hits ctrl-c.
         print()
@@ -261,8 +275,14 @@ def upload_data(service, tableId, path_data, num_batch=100, time_poll=5., status
         print('User stop!')
 
     # Done.
-
-
+    if info_summary is None:
+        val = 0
+    else:
+        val = info_summary['num_uploaded']
+    
+    return val
+    
+    
 if __name__ == '__main__':
     pass
 
