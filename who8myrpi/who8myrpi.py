@@ -3,6 +3,7 @@ from __future__ import division, print_function, unicode_literals
 
 import os
 import argparse
+import string
 
 import upload
 import sensors
@@ -19,17 +20,20 @@ def run_upload(experiment_name, path_data, path_credentials):
     Do the work to upload to my Fusion Table.
     """
 
-    max_allowed_resets = 5
+    print('Uploading data: %s' % experiment_name)
+    
+    max_allowed_resets = 1000
     num_resets = 0
     keep_looping = True
     while keep_looping:
         # Setup Google API credentials.
-        print('Acquire API credentials...')
         service, tableId = upload.acquire_api_service(experiment_name, path_credentials)
 
         print('Table ID: %s' % tableId)
 
-        num_uploaded = upload.upload_data(service, tableId, path_data, status_interval=60*30)
+        folder_experiment = valid_filename(experiment_name)
+        path_data_work = os.path.join(path_data, folder_experiment)
+        num_uploaded = upload.upload_data(service, tableId, path_data_work, status_interval=60*30)
 
         if num_uploaded >= 0:
             # Clean exit.
@@ -64,7 +68,11 @@ def run_record(experiment_name, path_data):
 
     # Read data over extended time period.
     print('Data pins: %s' % pins_data)
-    sensors.collect_data(pins_data, pin_ok, pin_err, path_data)
+    
+    folder_experiment = valid_filename(experiment_name)
+    path_data_work = os.path.join(path_data, folder_experiment)
+    
+    sensors.collect_data(pins_data, pin_ok, pin_err, path_data_work)
 
     print('End data recording')
 
@@ -73,6 +81,27 @@ def run_record(experiment_name, path_data):
 
 #####################################
 
+def valid_filename(fname_in):
+    """
+    Take a string and return a valid filename constructed from the string.
+    Uses a whitelist approach: any characters not present in valid_chars are
+    removed. Also spaces are replaced with underscores.
+
+    Note: this method may produce invalid filenames such as ``, `.` or `..`
+    When I use this method I prepend a date string like '2009_01_15_19_46_32_'
+    and append a file extension like '.txt', so I avoid the potential of using
+    an invalid filename.
+    """
+    valid_chars = '-_.() %s%s' % (string.ascii_letters, string.digits)
+
+    fname_out = ''.join(c for c in fname_in if c in valid_chars)
+    # fname_out = fname_out.replace(' ','_') # don't like spaces in filenames.
+
+    # Done.
+    return fname_out
+
+    
+    
 def main():
     """
     This is the main application.
@@ -80,7 +109,7 @@ def main():
     path_data = os.path.join(path_to_module(), 'data')
     path_credentials = os.path.join(path_to_module(), 'credentials')
 
-    experiment_name = 'Testing H | Six Sensors'
+    experiment_name = 'Testing H - Six Sensors'
 
     # Build the parser.
     parser = argparse.ArgumentParser()
@@ -93,10 +122,8 @@ def main():
     args = parser.parse_args()
 
     if args.record:
-        print('Record data: %s' % experiment_name)
         run_record(experiment_name, path_data)
     elif args.upload:
-        print('Upload data: %s' % experiment_name)
         run_upload(experiment_name, path_data, path_credentials)
     else:
         print()

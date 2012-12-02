@@ -6,6 +6,8 @@ import shutil
 import glob
 import datetime
 import time
+import subprocess
+import shlex
 
 import numpy as np
 import pytz
@@ -18,23 +20,49 @@ import who8mygoogle.authorize as authorize
 
 import errors
 
+##################################
+# Network.
+def run_cmd(cmd):
+    cmd = shlex.split(cmd)
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = proc.communicate()
+    proc.wait()
+    return stdout, stderr
+
+    
+def network_reset():
+    cmd = 'ifdown eth0'
+    stdout, stderr = run_cmd(cmd)
+    if stderr != '':
+        print('uh oh!')
+
+    time.sleep(5)
+    
+    cmd = 'ifup eth0'
+    stdout, stderr = run_cmd(cmd)
+    if stderr != '':
+        print('uh oh!')
+
+    # Done.
+
+
 ###################################
 # Helpers.
 #
 def reformat_timestamp(seconds):
     if type(seconds) == str or type(seconds) == unicode:
         seconds = float(seconds)
-        
+
     tz_UTC = pytz.timezone('UTC')
     dt_UTC = datetime.datetime.fromtimestamp(seconds, pytz.utc)
-    
+
     tz_LAX = pytz.timezone('America/Los_Angeles')
     dt_LAX = dt_UTC.astimezone(tz_LAX)
-    
+
     # fmt = '%Y-%m-%d %H:%M:%S %Z%z'
     fmt = '%Y-%m-%d %H:%M:%S'
     time_stamp = dt_LAX.strftime(fmt)
-    
+
     # Done.
     return time_stamp
 
@@ -73,8 +101,8 @@ def process_data(data_sens, header_sens):
     # Interpret the data.
     time_data = times[0]    # assume all time values are the same.
 
-    Tf_data = np.round( np.mean(Tf_time_avg), 2)
-    RH_data = np.round( np.mean(RH_time_avg), 2)
+    Tf_data = np.round( np.median(Tf_time_avg), 2)
+    RH_data = np.round( np.median(RH_time_avg), 2)
 
     Tf_std_data = np.round( np.std(Tf_time_avg), 2)
     RH_std_data = np.round( np.std(RH_time_avg), 2)
@@ -144,10 +172,10 @@ def pretty_status(time_now, info_summary=None):
     """
     if info_summary is None:
         info_summary = {'num_uploaded': 0}
-        
+
     d = datetime.datetime.utcfromtimestamp(time_now)
     time_stamp = d.strftime('%Y-%m-%d %H:%M:%S')
-    
+
     key = 'num_uploaded'
     num_uploaded_str = '%3d' % info_summary[key]
 
@@ -191,7 +219,7 @@ def acquire_api_service(experiment_name, path_credentials):
 def upload_data(service, tableId, path_data, num_batch=100, time_poll=5., status_interval=60*10):
     """
     Main work function.
-    
+
     time_poll: seconds
     status_interval: seconds
     """
@@ -214,7 +242,7 @@ def upload_data(service, tableId, path_data, num_batch=100, time_poll=5., status
             # Got some files?
             if len(files) > 0:
                 time.sleep(0.01)
-                
+
                 files = files[:num_batch]
                 num_files = len(files)
 
@@ -260,14 +288,14 @@ def upload_data(service, tableId, path_data, num_batch=100, time_poll=5., status
 
             # Repeat.
 
-    except who8mygoogle.Who8MyGoogleError as e: 
+    except who8mygoogle.Who8MyGoogleError as e:
         print('Caught error: %s' % e)
         return -1
-        
+
     except errors.Who8MyRPiError as e:
         print('Caught error: %s' % e)
         return -1
-        
+
     except KeyboardInterrupt:
         # End it all when user hits ctrl-c.
         print()
@@ -279,10 +307,10 @@ def upload_data(service, tableId, path_data, num_batch=100, time_poll=5., status
         val = 0
     else:
         val = info_summary['num_uploaded']
-    
+
     return val
-    
-    
+
+
 if __name__ == '__main__':
     pass
 

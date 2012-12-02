@@ -4,6 +4,7 @@ from __future__ import division, print_function, unicode_literals
 import os
 import time
 import datetime
+import string
 
 import numpy as np
 
@@ -36,7 +37,7 @@ def path_to_module():
     p = os.path.dirname(os.path.abspath(__file__))
     return p
 
-    
+
 ####################################
 
 
@@ -352,7 +353,7 @@ def build_summary(info_results, info_summary=None, pins_data=None):
         if pins_data is not None:
             for p in pins_data:
                 info_summary[p] = 0
-        
+
     for info_sample in info_results:
         p = info_sample['pin']
         n = info_sample['Samples']
@@ -383,7 +384,6 @@ def pretty_status(time_now, info_summary):
     print(msg)
 
     # Done.
-
 
 
 def collect_data(pins_data, pin_ok, pin_err, path_data, status_interval=60*10):

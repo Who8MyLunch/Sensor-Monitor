@@ -27,18 +27,33 @@ def folder_zip(path_folder, verbosity=False):
         # Write to a new archive.
         mode = 'w'
 
+    files_zipped = []
     with zipfile.ZipFile(f, mode, compression=compression) as zipper:
+        if mode == 'a':
+            infolist = zipper.infolist()
+        else:
+            infolist = None
+            
         for path_root, folders, files in os.walk(path_folder):
             for f in files:
                 if verbosity:
                     print(os.path.basename(f))
 
                 f_true = os.path.join(path_root, f)
-                f_arc = f_true.split(path_folder)[1]
-                zipper.write(f_true, f_arc)
+                f_arc = f_true.split(path_folder)[1][1:]
+                
+                already_zipped = False
+                if infolist is not None:
+                    for info in infolist:
+                        if f_arc == info.filename:
+                            already_zipped = True
+
+                if not already_zipped:
+                    zipper.write(f_true, f_arc)
+                    files_zipped.append(f)
 
     # Done.
-    return os.path.join(path_base, fname_zip)
+    return files_zipped
 
 
 
@@ -46,7 +61,6 @@ def folder_unzip(fname_zip):
     """
     Extract zip file to new folder.
     """
-
     fname_zip = os.path.abspath(os.path.normpath(fname_zip))
 
     path_base = os.path.dirname(fname_zip)
