@@ -58,10 +58,11 @@ def run_record(experiment_name, path_data):
     Do the work to record data from sensors.
     """
     # Pins.
-    pins_data = [4, 17, 18, 21, 22, 23]
-    pin_ok = 0
-    pin_err = 1
-
+    pins_data = [4, 17] #, 17, 18, 21, 22, 23]
+    pin_ok = None
+    pin_err = None
+    pin_power = 25
+    
     # Timing.
     dt = sensors.measure_timing.timing(pin=pins_data[0], time_poll=10)
     print('Timing: %.2f us' % (dt*1000))
@@ -72,7 +73,10 @@ def run_record(experiment_name, path_data):
     folder_experiment = valid_filename(experiment_name)
     path_data_work = os.path.join(path_data, folder_experiment)
     
-    sensors.collect_data(pins_data, pin_ok, pin_err, path_data_work)
+    status_interval = 60
+    sensors.collect_data(pins_data, path_data_work, 
+                         pin_power=pin_power,
+                         status_interval=status_interval)
 
     print('End data recording')
 
@@ -109,7 +113,7 @@ def main():
     path_data = os.path.join(path_to_module(), 'data')
     path_credentials = os.path.join(path_to_module(), 'credentials')
 
-    experiment_name = 'Testing H - Six Sensors'
+    experiment_name = 'Testing I - One Sensor'
 
     # Build the parser.
     parser = argparse.ArgumentParser()

@@ -156,25 +156,30 @@ def read_dht22_single(pin_data, delay=1):
 
 
 
-def set_status_led(status, pin_ok, pin_err):
-    if status > 0:
-        # Ok
-        dht22._digitalWrite(pin_ok, 1)
-        dht22._digitalWrite(pin_err, 0)
-    elif status == 0:
-        # Problem.
-        dht22._digitalWrite(pin_ok, 0)
-        dht22._digitalWrite(pin_err, 1)
+def set_status_led(status, pin_ok=None, pin_err=None):
+    if not (pin_ok == None or pin_err == None):
+        if status > 0:
+            # Ok
+            dht22._digitalWrite(pin_ok, 1)
+            dht22._digitalWrite(pin_err, 0)
+        elif status == 0:
+            # Problem.
+            dht22._digitalWrite(pin_ok, 0)
+            dht22._digitalWrite(pin_err, 1)
+        else:
+            # Unknown.
+            dht22._digitalWrite(pin_ok, 0)
+            dht22._digitalWrite(pin_err, 0)
     else:
-        # Unknown.
-        dht22._digitalWrite(pin_ok, 0)
-        dht22._digitalWrite(pin_err, 0)
+        # Do nothing.
+        pass
 
     # Done.
 
 
 
-def read_dht22(pins_data, pin_ok, pin_err, recording_interval=60., delta_time_wait=2.1):
+def read_dht22(pins_data, recording_interval=60., delta_time_wait=2.1,
+               pin_ok=None, pin_err=None, pin_power=None):
     """
     Read data from dht22 sensor.  Collect data over short time interval.  Return median value.
     Ignore any invalid data values.
@@ -205,6 +210,7 @@ def read_dht22(pins_data, pin_ok, pin_err, recording_interval=60., delta_time_wa
     time_run = 0.
     while time_run < recording_interval:
         set_status_led(-1, pin_ok, pin_err)
+
         time.sleep(delta_time_wait)
 
         # Loop over sensor pins.
@@ -219,17 +225,20 @@ def read_dht22(pins_data, pin_ok, pin_err, recording_interval=60., delta_time_wa
                 message = value[1]
                 RH, Tc = -1, -1
 
-                # print('problem with pin: %d' % pin)
+                print('problem with pin: %d' % pin)
+                print(message)
             else:
                 # Measurement OK.
                 set_status_led(1, pin_ok, pin_err)
                 RH, Tc = value
+                print('ok', RH, Tc)
 
             info_data[k]['pin'] = pin
             info_data[k]['RH'].append(RH)
             info_data[k]['Tc'].append(Tc)
             info_data[k]['time'].append(time_now)
 
+    print(info_data)
     set_status_led(-1, pin_ok, pin_err)
 
     # Finish.
@@ -277,8 +286,8 @@ def read_dht22(pins_data, pin_ok, pin_err, recording_interval=60., delta_time_wa
 
             info_results.append(info_sample)
         else:
-            pass
-            # print('No valid samples for pin %d' % pin)
+            # pass
+            print('No valid samples for pin %d' % pin)
 
 
     # Average time stamp over all data observations.
@@ -386,7 +395,8 @@ def pretty_status(time_now, info_summary):
     # Done.
 
 
-def collect_data(pins_data, pin_ok, pin_err, path_data, status_interval=60*10):
+def collect_data(pins_data, path_data, status_interval=60*10,
+                 pin_ok=None, pin_err=None, pin_power=None):
     """
     Record data for an experiment from multiple sensors.
     Save data to files.
@@ -404,6 +414,11 @@ def collect_data(pins_data, pin_ok, pin_err, path_data, status_interval=60*10):
     if pin_err is not None:
         dht22._pinMode(pin_err, 1)
 
+    if pin_power is not None:
+        dht22._pinMode(pin_power, 1)
+        dht22._digitalWrite(pin_power, 1)
+        time.sleep(10)
+
     if np.isscalar(pins_data):
         pins_data = [pins_data]
 
@@ -417,13 +432,13 @@ def collect_data(pins_data, pin_ok, pin_err, path_data, status_interval=60*10):
         ok = True
         while ok:
             # Collect data over specified recording interval.
-            info_results = read_dht22(pins_data, pin_ok, pin_err,
+            info_results = read_dht22(pins_data,
                                       recording_interval=recording_interval,
-                                      delta_time_wait=delta_time_wait)
+                                      delta_time_wait=delta_time_wait,
+                                      pin_ok=pin_ok, pin_err=pin_err)
 
             # Save data to file.
             write_record(sensor_name, info_results, path_data=path_data)
-
             info_summary = build_summary(info_results, info_summary, pins_data=pins_data)
 
             # Status update.
@@ -440,8 +455,14 @@ def collect_data(pins_data, pin_ok, pin_err, path_data, status_interval=60*10):
 
     except KeyboardInterrupt:
         # End it all when user hits ctrl-C.
-        dht22._pinMode(pin_ok, 0)
-        dht22._pinMode(pin_ok, 0)
+        if pin_ok is not None:
+            dht22._digitalWrite(pin_ok, 0)
+        if pin_err is not None:
+            dht22._digitalWrite(pin_err, 0)
+
+        if pin_power is not None:
+            dht22._digitalWrite(pin_power, 0)
+
 
         print()
         print('User stop!')
