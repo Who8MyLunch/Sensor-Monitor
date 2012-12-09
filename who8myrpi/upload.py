@@ -187,20 +187,19 @@ def pretty_status(time_now, info_summary=None):
 #######################################3
 
 # Static stuff.
-column_types = [['Time',        fusion_table.TYPE_DATETIME],
+column_types = [['Kind',        fusion_table.TYPE_STRING],
+                ['Time',        fusion_table.TYPE_DATETIME],
                 ['Temperature', fusion_table.TYPE_NUMBER],
                 ['Humidity',    fusion_table.TYPE_NUMBER],
                 ['Tf_std',      fusion_table.TYPE_NUMBER],
-                ['RH_std',      fusion_table.TYPE_NUMBER],
-                ['Quality_A',   fusion_table.TYPE_NUMBER],
-                ['Quality_B',   fusion_table.TYPE_NUMBER]]
+                ['RH_std',      fusion_table.TYPE_NUMBER]]
 
 fname_client = 'client_secrets.json'
 api_name = 'fusiontables'
 
 #####
 
-def acquire_api_service(experiment_name, path_credentials):
+def connect_table(table_name, path_credentials):
     """
     Establish credentials and retrieve API service object.
     """
@@ -209,7 +208,7 @@ def acquire_api_service(experiment_name, path_credentials):
     credentials = authorize.build_credentials(f, api_name)
     service = authorize.build_service(api_name, credentials)
 
-    tableId = fusion_table.fetch_table(service, experiment_name, column_types)
+    tableId = fusion_table.fetch_table(service, table_name, column_types)
 
     # Done.
     return service, tableId

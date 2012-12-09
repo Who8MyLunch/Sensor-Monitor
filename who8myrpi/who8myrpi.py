@@ -13,25 +13,25 @@ def path_to_module():
     p = os.path.dirname(os.path.abspath(__file__))
     return p
 
-###############################3
+###############################
 
-def run_upload(experiment_name, path_data, path_credentials):
+def run_upload(table_name, path_data, path_credentials):
     """
     Do the work to upload to my Fusion Table.
     """
 
-    print('Uploading data: %s' % experiment_name)
+    print('Uploading data: %s' % table_name)
     
     max_allowed_resets = 1000
     num_resets = 0
     keep_looping = True
     while keep_looping:
         # Setup Google API credentials.
-        service, tableId = upload.acquire_api_service(experiment_name, path_credentials)
+        service, tableId = upload.connect_table(table_name, path_credentials)
 
         print('Table ID: %s' % tableId)
 
-        folder_experiment = valid_filename(experiment_name)
+        folder_experiment = valid_filename(table_name)
         path_data_work = os.path.join(path_data, folder_experiment)
         num_uploaded = upload.upload_data(service, tableId, path_data_work, status_interval=60*30)
 
@@ -53,15 +53,18 @@ def run_upload(experiment_name, path_data, path_credentials):
     # Done.
 
 
-def run_record(experiment_name, path_data):
+def run_record(table_name, path_data):
     """
     Do the work to record data from sensors.
     """
     # Pins.
-    pins_data = [4, 17] #, 17, 18, 21, 22, 23]
-    pin_ok = None
-    pin_err = None
-    pin_power = 25
+    pins_data = [4, 17, 21, 18, 23, 24, 25]
+    # pins_data = [4, 17, 18, 23]
+    pin_ok = 7
+    pin_err = 8
+    pin_power = 22
+
+    power_cycle_interval = 60*10
     
     # Timing.
     dt = sensors.measure_timing.timing(pin=pins_data[0], time_poll=10)
@@ -70,13 +73,14 @@ def run_record(experiment_name, path_data):
     # Read data over extended time period.
     print('Data pins: %s' % pins_data)
     
-    folder_experiment = valid_filename(experiment_name)
+    folder_experiment = valid_filename(table_name)
     path_data_work = os.path.join(path_data, folder_experiment)
     
-    status_interval = 60
     sensors.collect_data(pins_data, path_data_work, 
+                         pin_ok=pin_ok,
+                         pin_err=pin_err,
                          pin_power=pin_power,
-                         status_interval=status_interval)
+                         power_cycle_interval=power_cycle_interval)
 
     print('End data recording')
 

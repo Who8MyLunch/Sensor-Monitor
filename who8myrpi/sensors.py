@@ -5,11 +5,13 @@ import os
 import time
 import datetime
 import string
+import threading
+import Queue
 
 import numpy as np
 
 import data_io as io
-import data_cache as cache
+# import data_cache as cache
 
 import dht22
 import measure_timing
@@ -105,7 +107,6 @@ def read_dht22_single(pin_data, delay=1):
 
     time.sleep(0.01)
 
-
     # Read some bits.
     first, bits = dht22.read_bits(pin_data, delay=delay)
 
@@ -178,7 +179,7 @@ def set_status_led(status, pin_ok=None, pin_err=None):
 
 
 
-def read_dht22(pins_data, recording_interval=60., delta_time_wait=2.1,
+def read_dht22(pins_data, recording_interval=60, delta_time_wait=2.1,
                pin_ok=None, pin_err=None, pin_power=None):
     """
     Read data from dht22 sensor.  Collect data over short time interval.  Return median value.
@@ -225,20 +226,20 @@ def read_dht22(pins_data, recording_interval=60., delta_time_wait=2.1,
                 message = value[1]
                 RH, Tc = -1, -1
 
-                print('problem with pin: %d' % pin)
-                print(message)
+                # print('problem with pin: %d' % pin)
+                # print(message)
             else:
                 # Measurement OK.
                 set_status_led(1, pin_ok, pin_err)
                 RH, Tc = value
-                print('ok', RH, Tc)
+                # print('ok', RH, Tc)
 
             info_data[k]['pin'] = pin
             info_data[k]['RH'].append(RH)
             info_data[k]['Tc'].append(Tc)
             info_data[k]['time'].append(time_now)
 
-    print(info_data)
+    # print(info_data)
     set_status_led(-1, pin_ok, pin_err)
 
     # Finish.
@@ -286,7 +287,7 @@ def read_dht22(pins_data, recording_interval=60., delta_time_wait=2.1,
 
             info_results.append(info_sample)
         else:
-            # pass
+            # Problem??
             print('No valid samples for pin %d' % pin)
 
 
@@ -395,7 +396,27 @@ def pretty_status(time_now, info_summary):
     # Done.
 
 
-def collect_data(pins_data, path_data, status_interval=60*10,
+def reset_power(pin_power=None):
+    """
+    Power cycle the sensors.
+    """
+    if pin_power is None:
+        pass
+    else:
+        # Do it.
+        dht22._digitalWrite(pin_power, 0)
+        time.sleep(30)
+        dht22._digitalWrite(pin_power, 1)
+
+    # Done.
+
+
+
+def collect_data(pins_data, path_data,
+                 status_interval=60*10,
+                 delta_time_wait=5,
+                 recording_interval=60,
+                 power_cycle_interval=60*60,
                  pin_ok=None, pin_err=None, pin_power=None):
     """
     Record data for an experiment from multiple sensors.
@@ -417,16 +438,15 @@ def collect_data(pins_data, path_data, status_interval=60*10,
     if pin_power is not None:
         dht22._pinMode(pin_power, 1)
         dht22._digitalWrite(pin_power, 1)
-        time.sleep(10)
+        time.sleep(5)
 
     if np.isscalar(pins_data):
         pins_data = [pins_data]
 
     # Main processing loop.
-    time_zero = time.time()
+    time_status_zero = time.time()
+    time_power_zero = time.time()
 
-    recording_interval = 60.
-    delta_time_wait = 2.1
     info_summary = None
     try:
         ok = True
@@ -441,16 +461,21 @@ def collect_data(pins_data, path_data, status_interval=60*10,
             write_record(sensor_name, info_results, path_data=path_data)
             info_summary = build_summary(info_results, info_summary, pins_data=pins_data)
 
-            # Status update.
+            # Time-based checks.
             time_now = time.time()
-            time_elapsed = time_now - time_zero
-            if time_elapsed > status_interval:
-                # Status display.
+
+            # Status display.
+            if time_now - time_status_zero > status_interval:
                 pretty_status(time_now, info_summary)
 
-                # Reset.
-                time_zero = time_now
+                time_status_zero = time_now
                 info_summary = None
+
+
+            # Power cycle the sensors.
+            if time_now - time_power_zero > power_cycle_interval:
+                reset_power(pin_power)
+                time_power_zero = time_now
 
 
     except KeyboardInterrupt:
@@ -468,6 +493,209 @@ def collect_data(pins_data, path_data, status_interval=60*10,
         print('User stop!')
 
     # Done.
+
+
+
+_time_wait_default = 2.5
+_time_history_default = 10*60
+
+class Channel(threading.Thread):
+    def __init__(self, pin, time_wait=None, time_history=None, *args, **kwargs):
+        """
+        Record data in Thread from specified sensor pin.
+
+        time_wait: seconds between polling sensor
+        time_history: seconds of historical data remembered
+        """
+
+        threading.Thread.__init__(self, *args, **kwargs)
+
+        if time_wait is None:
+            time_wait = _time_wait_default
+
+        if time_history is None:
+            time_history = _time_history_default
+
+        self.pin = pin
+        self.time_wait = time_wait
+        self.time_history = time_history
+        self.data_history = []
+
+        self._alive = False
+        self.queue = Queue.Queue(maxsize=100)
+
+        # Done.
+
+
+
+    def run(self):
+        """
+        This is where the work happens.
+        """
+        self._alive = True
+        while self._alive:
+            RH, Tc = read_dht22_single(pin_data, delay=1)
+            time_zero = time.clock()
+
+            if RH is None:
+                # Reading is not valid.
+                pass
+            else:
+                # Reading is good.  Store it.
+                Tf = c2f(Tc)
+                time_stamp = time.time()
+
+                info = {'RH': RH,
+                        'Tf': Tf,
+                        'time_stamp': time_stamp}
+
+                self.add_data(info)
+
+            # Wait a bit.
+            time_delta = self.time_wait - (time.clock() - time_zero)
+            time.sleep(time_delta)
+
+            # Repeat.
+
+
+    def stop(self):
+        """
+        Tell thread to stop running.
+        """
+        self._alive = False
+
+
+    def add_data(self, info):
+        """
+        Add new data point.
+        """
+        self.data_history.append(info)
+        num_removed = self.adjust_history()
+
+        
+
+
+        # Done.
+
+
+    def adjust_history(self):
+        """
+        Remove data from history if older than time window.
+        """
+
+        # Times.
+        time_stamp_now = time.time()
+
+        # Look for data that's too old.
+        list_too_old = []
+        for d in self.data_history:
+            delta = time_stamp_now - d['time_stamp']
+
+            if delta > self.time_history:
+                list_too_old.append(d)
+
+        # Remove data older than history window.
+        for d in list_too_old:
+            self.data_history.remove(d)
+
+        # Done.
+        return len(list_too_old)
+        
+
+    def check_values(self, info_new):
+        """
+        Check supplied data against historical data.
+        If bad data, estimate replacement value.
+        """
+        data_history_RH = [info['RH'] for info in self.data_history]
+        data_history_Tf = [info['Tf'] for info in self.data_history]
+
+        data_history_RH = np.asarray(data_history_RH)
+        data_history_Tf = np.asarray(data_history_Tf)
+        
+        
+        # Done.
+        return info_checked
+        
+        
+class OutputWorkerThread(threading.Thread):
+    def __init__(self, queue, thread_timeout=1.0, queue_timeout=0.1, *args, **kwargs):
+        """
+        Create new class instance.
+
+        timeout is time after which this thread will self-destruct if its not being used.
+        """
+        threading.Thread.__init__(self, *args, **kwargs)
+        self._queue = queue
+        self._thread_timeout = thread_timeout
+        self._queue_timeout = queue_timeout
+        self._alive = False
+
+        self._am_writing = False
+
+
+    @property
+    def is_empty(self):
+        """
+        Is output queue really empty?
+        """
+        flag_has_items = self._am_writing or self._queue.qsize() > 0
+
+        flag_is_empty = not flag_has_items
+
+        return flag_is_empty
+
+
+    def run(self):
+        """
+        This is where the work happens.
+        """
+
+        # Main loop.
+        self._alive = True
+        time_reference = time.time()
+        time_delta = 0
+
+        while self._alive and time_delta < self._thread_timeout:
+            time_delta = time.time() - time_reference
+
+            try:
+                # Block in queue until next item is available.
+                info = self._queue.get(block=True, timeout=self._queue_timeout)
+
+                self._am_writing = True
+
+                # Write item to file.
+                fname, item, args, kwargs = info
+                try:
+                    io.write(fname, item, *args, **kwargs)
+                except IOError:
+                    time_reference = time.time()
+                    self._am_writing = False
+                    raise
+
+                # Reset timer.
+                time_reference = time.time()
+                self._am_writing = False
+
+            except Queue.Empty:
+                time.sleep(0.001)
+                pass
+
+            # Done.
+
+
+    def stop(self):
+        """
+        Set flag to stop running.
+        """
+        self._alive = False
+
+
+
+
+
+
 
 if __name__ == '__main__':
     pass
