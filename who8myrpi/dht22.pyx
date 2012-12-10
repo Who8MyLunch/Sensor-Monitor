@@ -64,6 +64,18 @@ def _digitalRead(int pin):
 def _digitalWrite(int pin, int value):
     digitalWrite(pin, value)
 
+_LOW = LOW
+_HIGH = HIGH
+_MODE_PINS = MODE_PINS
+_MODE_GPIO = MODE_GPIO
+_INPUT = INPUT
+_OUTPUT = OUTPUT
+_PWM_OUTPUT = PWM_OUTPUT
+_PUD_OFF = PUD_OFF
+_PUD_DOWN = PUD_DOWN
+_PUD_UP = PUD_UP
+
+
 _GPIO_IS_SETUP = False
 def SetupGpio():
     """
