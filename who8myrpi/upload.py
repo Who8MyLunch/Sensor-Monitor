@@ -18,6 +18,7 @@ import who8mygoogle
 import who8mygoogle.fusion_table as fusion_table
 import who8mygoogle.authorize as authorize
 
+import utility
 import errors
 
 ##################################
@@ -49,22 +50,6 @@ def network_reset():
 ###################################
 # Helpers.
 #
-def reformat_timestamp(seconds):
-    if type(seconds) == str or type(seconds) == unicode:
-        seconds = float(seconds)
-
-    tz_UTC = pytz.timezone('UTC')
-    dt_UTC = datetime.datetime.fromtimestamp(seconds, pytz.utc)
-
-    tz_LAX = pytz.timezone('America/Los_Angeles')
-    dt_LAX = dt_UTC.astimezone(tz_LAX)
-
-    # fmt = '%Y-%m-%d %H:%M:%S %Z%z'
-    fmt = '%Y-%m-%d %H:%M:%S'
-    time_stamp = dt_LAX.strftime(fmt)
-
-    # Done.
-    return time_stamp
 
 
 ##########################################
@@ -88,7 +73,7 @@ def process_data(data_sens, header_sens):
 
     # Data recorded during sensors' sampling interval.
     times = [row[ix_Time] for row in data_sens]
-    times = [reformat_timestamp(t) for t in times]
+    times = [utility.reformat_timestamp(t) for t in times]
 
     Tf_time_avg = np.asarray( [float(row[ix_Tf_avg]) for row in data_sens] )
     RH_time_avg = np.asarray( [float(row[ix_RH_avg]) for row in data_sens] )

@@ -11,10 +11,11 @@ import numpy as np
 import pytz
 
 import data_io as io
-# import data_cache as cache
+import data_cache
 
 import dht22
 import measure_timing
+import utility
 
 #########################
 # Helper functions.
@@ -199,8 +200,8 @@ def read_dht22_single(pin_data, delay=1):
 
         if ok:
             # Checksum is OK.
-            RH = (np.left_shift(byte_1, 8) + byte_2) / 10.
-            Tc = (np.left_shift(byte_3, 8) + byte_4) / 10.
+            RH = float( (np.left_shift(byte_1, 8) + byte_2) / 10. )
+            Tc = float( (np.left_shift(byte_3, 8) + byte_4) / 10. )
         else:
             # Problem!
             msg = 'Fail checksum'
@@ -217,8 +218,7 @@ def read_dht22_single(pin_data, delay=1):
 
 ##########################################
 
-
-_time_wait_default = 2.5
+_time_wait_default = 5.
 _time_history_default = 10*60
 
 class Channel(threading.Thread):
@@ -249,7 +249,7 @@ class Channel(threading.Thread):
         self.time_history = time_history
         self.data_history = []
         self.data_latest = None
-        
+
         self._keep_running = False
         self.queue = queue
 
@@ -263,9 +263,8 @@ class Channel(threading.Thread):
         self._keep_running = True
         while self._keep_running:
             time_zero = time.clock()
-            
+
             RH, Tc = read_dht22_single(self.pin, delay=1)
-            print(RH, Tc)
 
             if RH is None:
                 # Reading is not valid.
@@ -273,12 +272,14 @@ class Channel(threading.Thread):
             else:
                 # Reading is good.  Store it.
                 info = {'type': 'sample',
+                        'pin': self.pin,
                         'RH': RH,
                         'Tf': c2f(Tc),
                         'time_stamp': time.time()}
 
                 info = self.add_data(info)
-                            
+                print(self.pretty_sample_string(info))
+                
             # Wait a bit.
             time_delta = self.time_wait - (time.clock() - time_zero)
             if time_delta > 0:
@@ -355,7 +356,7 @@ class Channel(threading.Thread):
             # Fail.
             print('CHECK FAIL!  Replace with historical median value.')
 
-            value_checked = value_med
+            value_checked = float(value_med)
 
         else:
             # Ok.
@@ -387,7 +388,7 @@ class Channel(threading.Thread):
         # Done.
         return info_checked
 
-        
+
     @property
     def freshness(self):
         """
@@ -398,16 +399,16 @@ class Channel(threading.Thread):
         else:
             time_now = time.time()
             delta_time = time_now - self.data_latest['time_stamp']
-            
+
             return delta_time
-            
-        
+
+
     def pretty_sample_string(self, info):
         """
         Construct nice string representation of data sample information.
         """
-        time_stamp_pretty = reformat_timestamp(info['time_stamp'])
-        result = 'Tf: %.1f, RH: %.1f, time: %s' % (info['Tf'], info['RH'], time_stamp_pretty)
+        time_stamp_pretty = utility.reformat_timestamp(info['time_stamp'])
+        result = 'pin: %2d, Tf: %.1f, RH: %.1f, time: %s' % (self.pin, info['Tf'], info['RH'], time_stamp_pretty)
 
         return result
 
@@ -432,10 +433,13 @@ class Channel(threading.Thread):
 
 ####################################
 
-
+def stop_all_channels(channels):
+    for c in channels:
+        c.stop()
+        
 
 def collect_data(pins_data, path_data,
-                 power_cycle_interval=60*60,
+                 power_cycle_interval=60*30,
                  pin_ok=None, pin_err=None, pin_power=None):
     """
     Record data for an experiment from multiple sensors.
@@ -443,6 +447,11 @@ def collect_data(pins_data, path_data,
 
     status_interval = seconds between status updates.
     """
+
+    if not os.path.isdir(path_data):
+        os.mkdir(path_data)
+
+    cache = data_cache.Cache()
 
     if np.isscalar(pins_data):
         pins_data = [pins_data]
@@ -458,24 +467,24 @@ def collect_data(pins_data, path_data,
     # Build and start the channel recorders.
     queue = Queue.Queue(maxsize=100)
 
-    time_wait = None
-    time_history = None
+    # time_wait = None
+    # time_history = None
     channels = []
     for p in pins_data:
-        c = Channel(p, queue=queue, time_wait=time_wait, time_history=time_history)
+        c = Channel(p, queue=queue) #, time_wait=time_wait, time_history=time_history)
         c.start()
         channels.append(c)
 
     #
     # Ensure all channels are recording ok.
     #
-    time_wait = 30
-    time_zero = time.clock()
-    time_elapsed = 0.
     all_channels_ok = False
+    time_wait_max = 30  # seconds
+    time_elapsed = 0.
+    time_zero = time.clock()
 
-    while time_elapsed < time_wait and not all_channels_ok:
-        time.sleep(1)
+    while time_elapsed < time_wait_max and not all_channels_ok:
+        time.sleep(0.1)
         count_ready = 0
         for c in channels:
             if c.data_latest is not None:
@@ -486,71 +495,64 @@ def collect_data(pins_data, path_data,
             all_channels_ok = True
 
         time_elapsed = time.clock() - time_zero
-        
-        
+
+
     if not all_channels_ok:
+        stop_all_channels(channels)
         raise ValueError('Only %d channels ready (out of %d) after waiting %s seconds.' %
-                         (count_ready, len(channels), time_wait))
+                         (count_ready, len(channels), time_wait_max))
 
     #
     # Main data recording loop.
     #
-    time_status_zero = time.time()
-    time_power_zero = time.time()
+    time_status_zero = time.clock()
+    time_power_zero = time.clock()
 
-    time_wait_poll = 15
-    
+    time_wait_poll = 5   # seconds
+
     try:
         while True:
-            time_zero = time.clock()
-            
+            time_poll_zero = time.clock()
+
             data_collected = []
             while not queue.empty():
                 info = queue.get()
                 data_collected.append(info)
-                
-            # Save collected data to file.
-            io.write(f, data_collected)
-            
-            # Wait a bit.
-            time_delta = time_wait_poll - (time.clock() - time_zero)
-            if time_delta > 0:
-                time.sleep(time_delta)
-                
-                
-            # Collect data over specified recording interval.
-            info_results = read_dht22(pins_data,
-                                      recording_interval=recording_interval,
-                                      delta_time_wait=delta_time_wait,
-                                      pin_ok=pin_ok, pin_err=pin_err)
 
-            # Save data to file.
-            write_record(sensor_name, info_results, path_data=path_data)
-            info_summary = build_summary(info_results, info_summary, pins_data=pins_data)
-
-            # Time-based checks.
-            time_now = time.time()
+            if len(data_collected) > 0:
+                # Save collected data to file.
+                print('\nwrite to file')
+                
+                t = data_collected[0]['time_stamp']
+                
+                fmt = '%Y-%m-%d %H-%M-%S'
+                time_stamp = utility.reformat_timestamp(t, fmt)
+                f = os.path.join(path_data, 'data-%s.yml' % time_stamp)
+                io.write(f, data_collected)
 
             # Status display.
-            if time_now - time_status_zero > status_interval:
-                pretty_status(time_now, info_summary)
-
-                time_status_zero = time_now
-                info_summary = None
-
+            # if time.clock() - time_status_zero > status_interval:
+                # pretty_status(time_now, info_summary)
+                # time_status_zero = time.clock()
 
             # Power cycle the sensors.
-            if time_now - time_power_zero > power_cycle_interval:
+            if time.clock() - time_power_zero > power_cycle_interval:
                 reset_power(pin_power)
-                time_power_zero = time_now
+                time_power_zero = time.clock()
 
+            # End of the loop.  Wait a bit before doing it all over again.
+            time_delta = time_wait_poll - (time.clock() - time_poll_zero)
+            if time_delta > 0:
+                time.sleep(time_delta)
 
     except KeyboardInterrupt:
         # End it all when user hits ctrl-C.
         set_status_led(0, pin_ok=pin_ok, pin_err=pin_err)
 
+        stop_all_channels(channels)
+            
         if pin_power is not None:
-            dht22._digitalWrite(pin_power, 0)
+            dht22._digitalWrite(pin_power, dht22._LOW)
 
         print()
         print('User stop!')
@@ -558,46 +560,33 @@ def collect_data(pins_data, path_data,
     # Done.
 
 
-_header = ['pin', 'RH_avg', 'RH_std', 'Tf_avg', 'Tf_std', 'Samples', 'Time']
-def write_data_samples(sensor_name, info_results, path_data=None):
-    """
-    Save experiment data record to file.
-    """
-    if path_data is None:
-        path_base = os.path.curdir
-        folder_data = 'data'
-        path_data = os.path.join(path_base, folder_data)
-
-    if not os.path.isdir(path_data):
-        os.mkdir(path_data)
-
-    t = info_results[0]['Time']
-    d = datetime.datetime.utcfromtimestamp(t)
-    time_stamp = d.strftime('%Y-%m-%d - %H-%M-%S')
-
-    folder_day = d.strftime('%Y-%m-%d')
-    path_day = os.path.join(path_data, folder_day)
-
-    if not os.path.isdir(path_day):
-        os.mkdir(path_day)
-
-    # Output to file.
-    fname = sensor_name + ' - ' + time_stamp + '.csv'
-
-    f = os.path.join(path_day, fname)
-
-    data = []
-    for info_sample in info_results:
-        line = [info_sample[k] for k in _header]
-        data.append(line)
-
-    io.write(f, data, header=_header)
-
-    # Done.
-
-
-
-
+# _header = ['pin', 'RH_avg', 'RH_std', 'Tf_avg', 'Tf_std', 'Samples', 'Time']
+# def write_data_samples(sensor_name, info_results, path_data=None):
+    # """
+    # Save experiment data record to file.
+    # """
+    # if path_data is None:
+        # path_base = os.path.curdir
+        # folder_data = 'data'
+        # path_data = os.path.join(path_base, folder_data)
+    # if not os.path.isdir(path_data):
+        # os.mkdir(path_data)
+    # t = info_results[0]['Time']
+    # d = datetime.datetime.utcfromtimestamp(t)
+    # time_stamp = d.strftime('%Y-%m-%d - %H-%M-%S')
+    # folder_day = d.strftime('%Y-%m-%d')
+    # path_day = os.path.join(path_data, folder_day)
+    # if not os.path.isdir(path_day):
+        # os.mkdir(path_day)
+    # # Output to file.
+    # fname = sensor_name + ' - ' + time_stamp + '.csv'
+    # f = os.path.join(path_day, fname)
+    # data = []
+    # for info_sample in info_results:
+        # line = [info_sample[k] for k in _header]
+        # data.append(line)
+    # io.write(f, data, header=_header)
+    # # Done.
 # def read_dht22(pins_data, recording_interval=60, delta_time_wait=2.1,
                # pin_ok=None, pin_err=None, pin_power=None):
     # """
@@ -711,7 +700,6 @@ def write_data_samples(sensor_name, info_results, path_data=None):
         # info_summary[p] += n
     # # Done.
     # return info_summary
-
 # def pretty_status(time_now, info_summary):
     # """
     # Display pretty status update.
@@ -728,19 +716,30 @@ def write_data_samples(sensor_name, info_results, path_data=None):
     # # Done.
 
 
-
-
-
-if __name__ == '__main__':
-    # Example.
+def example_single():
     pin_power = 22
 
     pin_data = 25
 
     dht22.SetupGpio()
-    dht22._pinMode(pin_power, 1)
-    dht22._digitalWrite(pin_power, 1)
+    dht22._pinMode(pin_power, dht22._OUTPUT)
+    dht22._digitalWrite(pin_power, dht22._HIGH)
 
     c = Channel(pin_data)
     c.start()
-
+    
+    
+def example_multiple(): 
+    pin_power = 22
+    pins_data = [4, 17, 18, 21, 23]
+    
+    path_data = os.path.join(os.path.abspath(os.path.curdir), 'data')
+    
+    collect_data(pins_data, path_data,
+                 pin_ok=None, pin_err=None, pin_power=pin_power)
+                 
+                 
+if __name__ == '__main__':
+    # Examples.
+    example_multiple()
+    
