@@ -6,11 +6,8 @@ import shutil
 import glob
 import datetime
 import time
-import subprocess
-import shlex
 
 import numpy as np
-import pytz
 
 import data_io as io
 
@@ -20,36 +17,6 @@ import who8mygoogle.authorize as authorize
 
 import utility
 import errors
-
-##################################
-# Network.
-def run_cmd(cmd):
-    cmd = shlex.split(cmd)
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    stdout, stderr = proc.communicate()
-    proc.wait()
-    return stdout, stderr
-
-    
-def network_reset():
-    cmd = 'ifdown eth0'
-    stdout, stderr = run_cmd(cmd)
-    if stderr != '':
-        print('uh oh!')
-
-    time.sleep(5)
-    
-    cmd = 'ifup eth0'
-    stdout, stderr = run_cmd(cmd)
-    if stderr != '':
-        print('uh oh!')
-
-    # Done.
-
-
-###################################
-# Helpers.
-#
 
 
 ##########################################

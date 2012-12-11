@@ -5,6 +5,7 @@ import os
 import argparse
 import string
 
+import config
 import upload
 import sensors
 
@@ -31,7 +32,7 @@ def run_upload(table_name, path_data, path_credentials):
 
         print('Table ID: %s' % tableId)
 
-        folder_experiment = valid_filename(table_name)
+        folder_experiment = utility.valid_filename(table_name)
         path_data_work = os.path.join(path_data, folder_experiment)
         num_uploaded = upload.upload_data(service, tableId, path_data_work, status_interval=60*30)
 
@@ -57,6 +58,7 @@ def run_record(table_name, path_data):
     """
     Do the work to record data from sensors.
     """
+    
     # Pins.
     pins_data = [4, 17, 21, 18, 23, 24, 25]
     # pins_data = [4, 17, 18, 23]
@@ -88,25 +90,6 @@ def run_record(table_name, path_data):
 
 
 #####################################
-
-def valid_filename(fname_in):
-    """
-    Take a string and return a valid filename constructed from the string.
-    Uses a whitelist approach: any characters not present in valid_chars are
-    removed. Also spaces are replaced with underscores.
-
-    Note: this method may produce invalid filenames such as ``, `.` or `..`
-    When I use this method I prepend a date string like '2009_01_15_19_46_32_'
-    and append a file extension like '.txt', so I avoid the potential of using
-    an invalid filename.
-    """
-    valid_chars = '-_.() %s%s' % (string.ascii_letters, string.digits)
-
-    fname_out = ''.join(c for c in fname_in if c in valid_chars)
-    # fname_out = fname_out.replace(' ','_') # don't like spaces in filenames.
-
-    # Done.
-    return fname_out
 
     
     

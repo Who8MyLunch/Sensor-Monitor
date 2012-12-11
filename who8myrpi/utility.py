@@ -8,6 +8,26 @@ import datetime
 import pytz
 
 
+def valid_filename(fname_in):
+    """
+    Take a string and return a valid filename constructed from the string.
+    Uses a whitelist approach: any characters not present in valid_chars are
+    removed. Also spaces are replaced with underscores.
+
+    Note: this method may produce invalid filenames such as ``, `.` or `..`
+    When I use this method I prepend a date string like '2009_01_15_19_46_32_'
+    and append a file extension like '.txt', so I avoid the potential of using
+    an invalid filename.
+    """
+    valid_chars = '-_.() %s%s' % (string.ascii_letters, string.digits)
+
+    fname_out = ''.join(c for c in fname_in if c in valid_chars)
+    # fname_out = fname_out.replace(' ','_') # don't like spaces in filenames.
+
+    # Done.
+    return fname_out
+
+    
 def run_cmd(cmd):
     cmd = shlex.split(cmd)
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
