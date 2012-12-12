@@ -25,7 +25,7 @@ master_table_id = '1rT2vCtaeiR9gO3k9n-DrKEPbvB54HKEhhGu2jNs'
                 # ['RH_std',      fusion_table.TYPE_NUMBER]]
 
 
-##################3
+##################
 
 
 def path_to_module():

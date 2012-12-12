@@ -5,6 +5,8 @@ import os
 import argparse
 import string
 
+import data_io as io
+
 import config
 import upload
 import sensors
@@ -16,7 +18,7 @@ def path_to_module():
 
 ###############################
 
-def run_upload(table_name, path_data, path_credentials):
+def run_upload(table_name, path_data, path_credentials, info_config):
     """
     Do the work to upload to my Fusion Table.
     """
@@ -54,7 +56,7 @@ def run_upload(table_name, path_data, path_credentials):
     # Done.
 
 
-def run_record(table_name, path_data):
+def run_record(table_name, path_data, info_config):
     """
     Do the work to record data from sensors.
     """
@@ -108,14 +110,22 @@ def main():
                         help='Upload sensor data to my Fusion Table.')
     parser.add_argument('-R', '--record', default=False, action='store_true',
                         help='Record data from DHT22 sensors.')
+    parser.add_argument('-C', '--config_file', default=None,
+                        help='Config file name.')
 
     # Parse command line input, do the work.
     args = parser.parse_args()
 
+    # Config file.
+    if args.config_file is None:
+        args.config_file = 'config.yml'
+    
+    info_config, meta = io.read(args.config_file)
+    
     if args.record:
-        run_record(experiment_name, path_data)
+        run_record(experiment_name, path_data, info_config)
     elif args.upload:
-        run_upload(experiment_name, path_data, path_credentials)
+        run_upload(experiment_name, path_data, path_credentials, info_config)
     else:
         print()
         print('Error!  Must supply command-line argument.')
