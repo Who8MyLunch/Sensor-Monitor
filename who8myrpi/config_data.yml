@@ -1,1 +1,5 @@
-asd
+name_experiment: working
+master_table_id: aaa
+pins_data: 4, 17
+pin_ok: 2
+pin_err: 34
