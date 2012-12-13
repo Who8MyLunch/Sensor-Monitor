@@ -1,5 +1,8 @@
-name_experiment: working
-master_table_id: aaa
-pins_data: 4, 17
-pin_ok: 2
-pin_err: 34
+name_experiment: Early Testing
+master_table_id: 1rT2vCtaeiR9gO3k9n-DrKEPbvB54HKEhhGu2jNs
+pins_data: [4, 17, 21, 18, 23, 24,25]
+pin_ok: 7
+pin_err: 8
+pin_power: 22
+
+power_cycle_interval: 120

@@ -3,20 +3,22 @@ from __future__ import division, print_function, unicode_literals
 
 import os
 import argparse
-import string
 
 import data_io as io
 
-import config
+import utility
+import master_table
 import upload
 import sensors
 
-
+###############################
+# Helpers.
 def path_to_module():
     p = os.path.dirname(os.path.abspath(__file__))
     return p
 
 ###############################
+
 
 def run_upload(table_name, path_data, path_credentials, info_config):
     """
@@ -28,6 +30,7 @@ def run_upload(table_name, path_data, path_credentials, info_config):
     max_allowed_resets = 1000
     num_resets = 0
     keep_looping = True
+    
     while keep_looping:
         # Setup Google API credentials.
         service, tableId = upload.connect_table(table_name, path_credentials)
@@ -56,28 +59,28 @@ def run_upload(table_name, path_data, path_credentials, info_config):
     # Done.
 
 
+    
 def run_record(table_name, path_data, info_config):
     """
     Do the work to record data from sensors.
     """
     
     # Pins.
-    pins_data = [4, 17, 21, 18, 23, 24, 25]
-    # pins_data = [4, 17, 18, 23]
-    pin_ok = 7
-    pin_err = 8
-    pin_power = 22
+    pins_data = info_config['pins_data']
+    pin_ok = info_config['pin_ok']
+    pin_err = info_config['pin_err']
+    pin_power = info_config['pin_power']
 
-    power_cycle_interval = 60*10
+    power_cycle_interval = info_config['power_cycle_interval']
     
-    # Timing.
+    # Timing, FYI.
     dt = sensors.measure_timing.timing(pin=pins_data[0], time_poll=10)
     print('Timing: %.2f us' % (dt*1000))
 
     # Read data over extended time period.
     print('Data pins: %s' % pins_data)
     
-    folder_experiment = valid_filename(table_name)
+    folder_experiment = utility.valid_filename(table_name)
     path_data_work = os.path.join(path_data, folder_experiment)
     
     sensors.collect_data(pins_data, path_data_work, 
@@ -118,9 +121,10 @@ def main():
 
     # Config file.
     if args.config_file is None:
-        args.config_file = 'config.yml'
-    
-    info_config, meta = io.read(args.config_file)
+        args.config_file = 'config_data.yml'
+        
+    f = os.path.join(path_to_module(), args.config_file)
+    info_config, meta = io.read(f)
     
     if args.record:
         run_record(experiment_name, path_data, info_config)

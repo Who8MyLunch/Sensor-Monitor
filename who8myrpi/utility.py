@@ -6,7 +6,7 @@ import shlex
 import time
 import datetime
 import pytz
-
+import string
 
 def valid_filename(fname_in):
     """
@@ -52,7 +52,8 @@ def network_reset():
     # Done.
 
 
-def reformat_timestamp(seconds, fmt=None):
+
+def pretty_timestamp(seconds, fmt=None):
     """
     default fmt = '%Y-%m-%d %H:%M:%S'
     """

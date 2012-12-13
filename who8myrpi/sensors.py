@@ -6,6 +6,7 @@ import time
 import datetime
 import threading
 import Queue
+import random
 
 import numpy as np
 import pytz
@@ -20,28 +21,11 @@ import utility
 #########################
 # Helper functions.
 #
-
-def reformat_timestamp(seconds):
-    if type(seconds) == str or type(seconds) == unicode:
-        seconds = float(seconds)
-
-    tz_UTC = pytz.timezone('UTC')
-    dt_UTC = datetime.datetime.fromtimestamp(seconds, pytz.utc)
-
-    tz_LAX = pytz.timezone('America/Los_Angeles')
-    dt_LAX = dt_UTC.astimezone(tz_LAX)
-
-    # fmt = '%Y-%m-%d %H:%M:%S %Z%z'
-    fmt = '%Y-%m-%d %H:%M:%S'
-    time_stamp = dt_LAX.strftime(fmt)
-
-    # Done.
-    return time_stamp
-
-
 def path_to_module():
     p = os.path.dirname(os.path.abspath(__file__))
     return p
+
+####################
 
 
 def set_status_led(status, pin_ok=None, pin_err=None):
@@ -88,8 +72,10 @@ def check_pin_connected(pin_data):
 def reset_power(pin_power=None, time_sleep=None):
     """
     Power cycle the sensors.
+    time_sleep in seconds.
     """
-    time_sleep = 30
+    if time_sleep is None:
+        time_sleep = 30
 
     if pin_power is None:
         pass
@@ -101,6 +87,7 @@ def reset_power(pin_power=None, time_sleep=None):
 
     # Done.
 
+    
 ####################################
 # Data record.
 def c2f(C):
@@ -250,7 +237,8 @@ class Channel(threading.Thread):
         self.data_history = []
         self.data_latest = None
 
-        self._keep_running = False
+        self.record_data = True
+        self.keep_running = False
         self.queue = queue
 
         # Done.
@@ -260,34 +248,39 @@ class Channel(threading.Thread):
         """
         This is where the work happens.
         """
-        self._keep_running = True
-        while self._keep_running:
-            time_zero = time.clock()
+        self.keep_running = True
+        while self.keep_running:
+            time_zero = time.time()
 
-            RH, Tc = read_dht22_single(self.pin, delay=1)
+            if self.record_data:
+                RH, Tc = read_dht22_single(self.pin, delay=1)
 
-            if RH is None:
-                # Reading is not valid.
-                pass
+                if RH is None:
+                    # Reading is not valid.
+                    pass
+                else:
+                    # Reading is good.  Store it.
+                    info = {'type': 'sample',
+                            'pin': self.pin,
+                            'RH': RH,
+                            'Tf': c2f(Tc),
+                            'time_stamp': time.time()}
+
+                    info = self.add_data(info)
+                    #print(self.pretty_sample_string(info))
             else:
-                # Reading is good.  Store it.
-                info = {'type': 'sample',
-                        'pin': self.pin,
-                        'RH': RH,
-                        'Tf': c2f(Tc),
-                        'time_stamp': time.time()}
-
-                info = self.add_data(info)
-                print(self.pretty_sample_string(info))
+                pass
+                # print('recording paused: %d' % self.pin)
                 
-            # Wait a bit.
-            time_delta = self.time_wait - (time.clock() - time_zero)
+            # Wait a bit before attempting another measurement.
+            dt = random.uniform(0, 0.1)
+            time_delta = self.time_wait - (time.time() - time_zero) + dt
             if time_delta > 0:
                 time.sleep(time_delta)
 
             # Repeat.
 
-        print('exit thread loop for pin %d.' % self.pin)
+        print('exit thread for pin %d.' % self.pin)
 
         # Done.
 
@@ -296,7 +289,7 @@ class Channel(threading.Thread):
         """
         Tell thread to stop running.
         """
-        self._keep_running = False
+        self.keep_running = False
 
 
     def add_data(self, info):
@@ -407,7 +400,7 @@ class Channel(threading.Thread):
         """
         Construct nice string representation of data sample information.
         """
-        time_stamp_pretty = utility.reformat_timestamp(info['time_stamp'])
+        time_stamp_pretty = utility.pretty_timestamp(info['time_stamp'])
         result = 'pin: %2d, Tf: %.1f, RH: %.1f, time: %s' % (self.pin, info['Tf'], info['RH'], time_stamp_pretty)
 
         return result
@@ -424,7 +417,7 @@ class Channel(threading.Thread):
         print(' length queue: %d' % self.queue.qsize())
         print(' queue full: %s' % self.queue.full())
         print(' queue empty: %s' % self.queue.empty())
-        print(' is running: %s' % self._keep_running)
+        print(' is running: %s' % self.keep_running)
         print(' latest data: %s' % self.pretty_sample_string(self.data_latest))
         print(' freshness: %.1f seconds' % self.freshness)
         print()
@@ -436,8 +429,20 @@ class Channel(threading.Thread):
 def stop_all_channels(channels):
     for c in channels:
         c.stop()
+    for c in channels:
+        c.join()
         
+def pause_channels(channels):
+    # print('Pause channels')
+    for c in channels:
+        c.record_data = False
+        
+def unpause_channels(channels):
+    # print('Unpause channels')
+    for c in channels:
+        c.record_data = True
 
+        
 def collect_data(pins_data, path_data,
                  power_cycle_interval=60*30,
                  pin_ok=None, pin_err=None, pin_power=None):
@@ -472,47 +477,53 @@ def collect_data(pins_data, path_data,
     channels = []
     for p in pins_data:
         c = Channel(p, queue=queue) #, time_wait=time_wait, time_history=time_history)
+        
+        dt = random.uniform(0, 0.5)
+        time.sleep(dt)
+        
         c.start()
         channels.append(c)
-
+        
     #
     # Ensure all channels are recording ok.
     #
     all_channels_ok = False
-    time_wait_max = 30  # seconds
+    time_wait_max = 60  # seconds
     time_elapsed = 0.
-    time_zero = time.clock()
-
-    while time_elapsed < time_wait_max and not all_channels_ok:
-        time.sleep(0.1)
-        count_ready = 0
-        for c in channels:
-            if c.data_latest is not None:
-                count_ready += 1
-
-        if count_ready == len(channels):
-            # Everything is good to go.
-            all_channels_ok = True
-
-        time_elapsed = time.clock() - time_zero
-
-
-    if not all_channels_ok:
-        stop_all_channels(channels)
-        raise ValueError('Only %d channels ready (out of %d) after waiting %s seconds.' %
-                         (count_ready, len(channels), time_wait_max))
-
-    #
-    # Main data recording loop.
-    #
-    time_status_zero = time.clock()
-    time_power_zero = time.clock()
-
-    time_wait_poll = 5   # seconds
+    time_zero = time.time()
 
     try:
+        while not (time_elapsed > time_wait_max or all_channels_ok):
+            
+            time.sleep(2)
+            count_ready = 0
+            for c in channels:
+                if c.data_latest is not None:
+                    count_ready += 1
+
+            if count_ready == len(channels):
+                # Everything is good to go.
+                all_channels_ok = True
+
+            time_elapsed = time.time() - time_zero
+            print('channels ok: %d of %d' % (count_ready, len(channels)))
+
+
+        if not all_channels_ok:
+            stop_all_channels(channels)
+            raise ValueError('Only %d channels ready (out of %d) after waiting %s seconds.' %
+                             (count_ready, len(channels), time_wait_max))
+
+        #
+        # Main data recording loop.
+        #
+        time_status_zero = time.time()
+        time_power_zero = time_status_zero
+
+        time_wait_poll = 10   # seconds
+
         while True:
-            time_poll_zero = time.clock()
+            time_poll_zero = time.time()
 
             data_collected = []
             while not queue.empty():
@@ -521,32 +532,44 @@ def collect_data(pins_data, path_data,
 
             if len(data_collected) > 0:
                 # Save collected data to file.
-                print('\nwrite to file')
+                print('write: %d' % len(data_collected) )
                 
                 t = data_collected[0]['time_stamp']
                 
                 fmt = '%Y-%m-%d %H-%M-%S'
-                time_stamp = utility.reformat_timestamp(t, fmt)
+                time_stamp = utility.pretty_timestamp(t, fmt)
                 f = os.path.join(path_data, 'data-%s.yml' % time_stamp)
                 io.write(f, data_collected)
 
             # Status display.
-            # if time.clock() - time_status_zero > status_interval:
+            # if time.time() - time_status_zero > status_interval:
                 # pretty_status(time_now, info_summary)
-                # time_status_zero = time.clock()
+                # time_status_zero = time.time()
 
             # Power cycle the sensors.
-            if time.clock() - time_power_zero > power_cycle_interval:
+            # v = time.time() - time_power_zero
+            # print('time power cycle: %.2f [%.2f]' % (v, power_cycle_interval) )
+            if time.time() - time_power_zero > power_cycle_interval:
+                print('Power cycle!!')
+                pause_channels(channels)
+                time.sleep(1)
                 reset_power(pin_power)
-                time_power_zero = time.clock()
+                time.sleep(1)
+                unpause_channels(channels)
+                
+                time_power_zero = time.time()
 
             # End of the loop.  Wait a bit before doing it all over again.
-            time_delta = time_wait_poll - (time.clock() - time_poll_zero)
+            time_delta = time_wait_poll - (time.time() - time_poll_zero)
             if time_delta > 0:
+                print('wait: %.2f' % time_delta)
                 time.sleep(time_delta)
 
     except KeyboardInterrupt:
         # End it all when user hits ctrl-C.
+        print()
+        print('User stop!')
+
         set_status_led(0, pin_ok=pin_ok, pin_err=pin_err)
 
         stop_all_channels(channels)
@@ -554,8 +577,6 @@ def collect_data(pins_data, path_data,
         if pin_power is not None:
             dht22._digitalWrite(pin_power, dht22._LOW)
 
-        print()
-        print('User stop!')
 
     # Done.
 
