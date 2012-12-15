@@ -28,13 +28,17 @@ def valid_filename(fname_in):
     return fname_out
 
     
+    
 def run_cmd(cmd):
     cmd = shlex.split(cmd)
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = proc.communicate()
     proc.wait()
+    
+    # Done.
     return stdout, stderr
 
+    
     
 def network_reset():
     cmd = 'ifdown eth0'

@@ -20,12 +20,20 @@ def path_to_module():
 ###############################
 
 
-def run_upload(table_name, path_data, path_credentials, info_config):
+def run_upload(info_config):
     """
     Do the work to upload to my Fusion Table.
     """
 
-    print('Uploading data: %s' % table_name)
+    # Config.
+    experiment_name = info_config['experiment_name']
+
+    path_credentials = os.path.join(path_to_module(), 'credentials')
+    path_data = os.path.join(path_to_module(), 'data')
+    
+    folder_experiment = utility.valid_filename(experiment_name)
+    path_data_work = os.path.join(path_data, folder_experiment)
+
     
     max_allowed_resets = 1000
     num_resets = 0
@@ -33,13 +41,12 @@ def run_upload(table_name, path_data, path_credentials, info_config):
     
     while keep_looping:
         # Setup Google API credentials.
-        service, tableId = upload.connect_table(table_name, path_credentials)
+        service, tableId = upload.connect_table(experiment_name, path_credentials)
 
         print('Table ID: %s' % tableId)
 
-        folder_experiment = utility.valid_filename(table_name)
-        path_data_work = os.path.join(path_data, folder_experiment)
-        num_uploaded = upload.upload_data(service, tableId, path_data_work, status_interval=60*30)
+        1/0
+        num_uploaded = upload.upload_data(service, tableId, path_data_work)
 
         if num_uploaded >= 0:
             # Clean exit.
@@ -60,18 +67,22 @@ def run_upload(table_name, path_data, path_credentials, info_config):
 
 
     
-def run_record(table_name, path_data, info_config):
+def run_record(info_config):
     """
     Do the work to record data from sensors.
     """
+
+    # Config.
+    experiment_name = info_config['experiment_name']
     
-    # Pins.
+    path_data = os.path.join(path_to_module(), 'data')
+
     pins_data = info_config['pins_data']
     pin_ok = info_config['pin_ok']
     pin_err = info_config['pin_err']
     pin_power = info_config['pin_power']
 
-    power_cycle_interval = info_config['power_cycle_interval']
+    power_cycle_interval = info_config['power_cycle_interval']    
     
     # Timing, FYI.
     dt = sensors.measure_timing.timing(pin=pins_data[0], time_poll=10)
@@ -80,9 +91,10 @@ def run_record(table_name, path_data, info_config):
     # Read data over extended time period.
     print('Data pins: %s' % pins_data)
     
-    folder_experiment = utility.valid_filename(table_name)
+    folder_experiment = utility.valid_filename(experiment_name)
     path_data_work = os.path.join(path_data, folder_experiment)
     
+    print('Begin data recording')
     sensors.collect_data(pins_data, path_data_work, 
                          pin_ok=pin_ok,
                          pin_err=pin_err,
@@ -102,10 +114,6 @@ def main():
     """
     This is the main application.
     """
-    path_data = os.path.join(path_to_module(), 'data')
-    path_credentials = os.path.join(path_to_module(), 'credentials')
-
-    experiment_name = 'Testing I - One Sensor'
 
     # Build the parser.
     parser = argparse.ArgumentParser()
@@ -127,9 +135,9 @@ def main():
     info_config, meta = io.read(f)
     
     if args.record:
-        run_record(experiment_name, path_data, info_config)
+        run_record(info_config)
     elif args.upload:
-        run_upload(experiment_name, path_data, path_credentials, info_config)
+        run_upload(info_config)
     else:
         print()
         print('Error!  Must supply command-line argument.')

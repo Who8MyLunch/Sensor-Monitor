@@ -21,7 +21,7 @@ import errors
 
 ##########################################
 
-def process_data(data_sens, header_sens):
+def process_data_OLD(data_sens, header_sens):
     """
     Interpret recorded input data.
     row = pin, RH_avg, RH_std, Tf_avg, Tf_std, Samples, Time
@@ -40,7 +40,7 @@ def process_data(data_sens, header_sens):
 
     # Data recorded during sensors' sampling interval.
     times = [row[ix_Time] for row in data_sens]
-    times = [utility.reformat_timestamp(t) for t in times]
+    times = [utility.pretty_timestamp(t) for t in times]
 
     Tf_time_avg = np.asarray( [float(row[ix_Tf_avg]) for row in data_sens] )
     RH_time_avg = np.asarray( [float(row[ix_RH_avg]) for row in data_sens] )
@@ -83,19 +83,26 @@ def process_data(data_sens, header_sens):
 def load_data_files(files):
     """
     Load a number of data files, concatenate into single list of rows.
+    
+    column_types = [['Time',        fusion_table.TYPE_DATETIME],
+                    ['Kind',        fusion_table.TYPE_STRING],
+                    ['Pin',         fusion_table.TYPE_NUMBER],
+                    ['Temperature', fusion_table.TYPE_NUMBER],
+                    ['Humidity',    fusion_table.TYPE_NUMBER]]
     """
-    data_proc = []
-    num_rows = 0
+    rows_data = []
     for f in files:
-        rows_sens, header_sens = io.read(f)
-        num_rows += len(rows_sens)
-
+        data, column_names = io.read(f)
+        
+        rows = 
+        rows_data.extend(rows)
+            
         row_proc, header_proc = process_data(rows_sens, header_sens)
 
         data_proc.append(row_proc)
 
     # Done.
-    return data_proc, header_proc, num_rows
+    return rows_data, column_names
 
 
 ####################
@@ -139,12 +146,11 @@ def pretty_status(time_now, info_summary=None):
 #######################################3
 
 # Static stuff.
-column_types = [['Kind',        fusion_table.TYPE_STRING],
-                ['Time',        fusion_table.TYPE_DATETIME],
+column_types = [['Time',        fusion_table.TYPE_DATETIME],
+                ['Kind',        fusion_table.TYPE_STRING],
+                ['Pin',         fusion_table.TYPE_NUMBER],
                 ['Temperature', fusion_table.TYPE_NUMBER],
-                ['Humidity',    fusion_table.TYPE_NUMBER],
-                ['Tf_std',      fusion_table.TYPE_NUMBER],
-                ['RH_std',      fusion_table.TYPE_NUMBER]]
+                ['Humidity',    fusion_table.TYPE_NUMBER]]
 
 fname_client = 'client_secrets.json'
 api_name = 'fusiontables'
@@ -167,7 +173,7 @@ def connect_table(table_name, path_credentials):
 
 
 
-def upload_data(service, tableId, path_data, num_batch=100, time_poll=5., status_interval=60*10):
+def upload_data(service, tableId, path_data):
     """
     Main work function.
 
@@ -175,7 +181,12 @@ def upload_data(service, tableId, path_data, num_batch=100, time_poll=5., status
     status_interval: seconds
     """
 
-    pattern_data = os.path.join(path_data, '201?-??-??', '*.csv')
+    # Setup.
+    num_batch = 100
+    time_poll = 5.
+    status_interval = 60*10
+    
+    pattern_data = os.path.join(path_data, '201?-??-??', '*.yml')
     folder_archive = 'archive'
 
     # Main processing loop.
@@ -183,16 +194,16 @@ def upload_data(service, tableId, path_data, num_batch=100, time_poll=5., status
     info_summary = None
 
     try:
-        ok = True
+        keep_looping = True
 
-        while ok:
+        while keep_looping:
             # List of candidate files.
             files = glob.glob(pattern_data)
             files.sort()
 
             # Got some files?
             if len(files) > 0:
-                time.sleep(0.01)
+                time.sleep(0.01)  # small sleep to ensure that found files are fully written to disk.
 
                 files = files[:num_batch]
                 num_files = len(files)
@@ -249,8 +260,6 @@ def upload_data(service, tableId, path_data, num_batch=100, time_poll=5., status
 
     except KeyboardInterrupt:
         # End it all when user hits ctrl-c.
-        print()
-        print()
         print('User stop!')
 
     # Done.

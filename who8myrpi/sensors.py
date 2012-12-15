@@ -12,7 +12,7 @@ import numpy as np
 import pytz
 
 import data_io as io
-import data_cache
+# import data_cache
 
 import dht22
 import measure_timing
@@ -81,9 +81,11 @@ def reset_power(pin_power=None, time_sleep=None):
         pass
     else:
         # Do it.
+        time.sleep(0.01)
         dht22._digitalWrite(pin_power, dht22._LOW)
         time.sleep(time_sleep)
         dht22._digitalWrite(pin_power, dht22._HIGH)
+        time.sleep(0.01)
 
     # Done.
 
@@ -205,7 +207,7 @@ def read_dht22_single(pin_data, delay=1):
 
 ##########################################
 
-_time_wait_default = 5.
+_time_wait_default = 10.
 _time_history_default = 10*60
 
 class Channel(threading.Thread):
@@ -253,6 +255,7 @@ class Channel(threading.Thread):
             time_zero = time.time()
 
             if self.record_data:
+                # Record some data.
                 RH, Tc = read_dht22_single(self.pin, delay=1)
 
                 if RH is None:
@@ -260,7 +263,7 @@ class Channel(threading.Thread):
                     pass
                 else:
                     # Reading is good.  Store it.
-                    info = {'type': 'sample',
+                    info = {'kind': 'sample',
                             'pin': self.pin,
                             'RH': RH,
                             'Tf': c2f(Tc),
@@ -269,11 +272,12 @@ class Channel(threading.Thread):
                     info = self.add_data(info)
                     #print(self.pretty_sample_string(info))
             else:
-                pass
+                # Recording is paused.
                 # print('recording paused: %d' % self.pin)
+                pass
                 
             # Wait a bit before attempting another measurement.
-            dt = random.uniform(0, 0.1)
+            dt = random.uniform(-0.05, 0.05)
             time_delta = self.time_wait - (time.time() - time_zero) + dt
             if time_delta > 0:
                 time.sleep(time_delta)
@@ -333,7 +337,6 @@ class Channel(threading.Thread):
 
         # Remove old data from history.
         for d in list_too_old:
-            print('remove old data: %s' % d)
             self.data_history.remove(d)
 
         # Done.
@@ -443,6 +446,7 @@ def unpause_channels(channels):
         c.record_data = True
 
         
+        
 def collect_data(pins_data, path_data,
                  power_cycle_interval=60*30,
                  pin_ok=None, pin_err=None, pin_power=None):
@@ -456,8 +460,6 @@ def collect_data(pins_data, path_data,
     if not os.path.isdir(path_data):
         os.mkdir(path_data)
 
-    cache = data_cache.Cache()
-
     if np.isscalar(pins_data):
         pins_data = [pins_data]
 
@@ -470,7 +472,7 @@ def collect_data(pins_data, path_data,
         time.sleep(5)
 
     # Build and start the channel recorders.
-    queue = Queue.Queue(maxsize=100)
+    queue = Queue.Queue(maxsize=1000)
 
     # time_wait = None
     # time_history = None
@@ -478,7 +480,7 @@ def collect_data(pins_data, path_data,
     for p in pins_data:
         c = Channel(p, queue=queue) #, time_wait=time_wait, time_history=time_history)
         
-        dt = random.uniform(0, 0.5)
+        dt = random.uniform(0.1, 0.2)
         time.sleep(dt)
         
         c.start()
@@ -495,7 +497,7 @@ def collect_data(pins_data, path_data,
     try:
         while not (time_elapsed > time_wait_max or all_channels_ok):
             
-            time.sleep(2)
+            time.sleep(5)
             count_ready = 0
             for c in channels:
                 if c.data_latest is not None:
@@ -520,7 +522,7 @@ def collect_data(pins_data, path_data,
         time_status_zero = time.time()
         time_power_zero = time_status_zero
 
-        time_wait_poll = 10   # seconds
+        time_wait_poll = 30   # seconds
 
         while True:
             time_poll_zero = time.time()
@@ -532,29 +534,25 @@ def collect_data(pins_data, path_data,
 
             if len(data_collected) > 0:
                 # Save collected data to file.
-                print('write: %d' % len(data_collected) )
-                
                 t = data_collected[0]['time_stamp']
-                
                 fmt = '%Y-%m-%d %H-%M-%S'
+                
                 time_stamp = utility.pretty_timestamp(t, fmt)
                 f = os.path.join(path_data, 'data-%s.yml' % time_stamp)
                 io.write(f, data_collected)
 
+                print('write:%3d [%s]' % (len(data_collected), time_stamp) )
+                
             # Status display.
             # if time.time() - time_status_zero > status_interval:
                 # pretty_status(time_now, info_summary)
                 # time_status_zero = time.time()
 
             # Power cycle the sensors.
-            # v = time.time() - time_power_zero
-            # print('time power cycle: %.2f [%.2f]' % (v, power_cycle_interval) )
             if time.time() - time_power_zero > power_cycle_interval:
-                print('Power cycle!!')
+                print('Power cycle')
                 pause_channels(channels)
-                time.sleep(1)
                 reset_power(pin_power)
-                time.sleep(1)
                 unpause_channels(channels)
                 
                 time_power_zero = time.time()
@@ -562,7 +560,7 @@ def collect_data(pins_data, path_data,
             # End of the loop.  Wait a bit before doing it all over again.
             time_delta = time_wait_poll - (time.time() - time_poll_zero)
             if time_delta > 0:
-                print('wait: %.2f' % time_delta)
+                # print('wait: %.2f' % time_delta)
                 time.sleep(time_delta)
 
     except KeyboardInterrupt:

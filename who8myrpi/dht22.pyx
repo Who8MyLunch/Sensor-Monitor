@@ -75,7 +75,7 @@ _PUD_OFF = PUD_OFF
 _PUD_DOWN = PUD_DOWN
 _PUD_UP = PUD_UP
 
-
+ 
 _GPIO_IS_SETUP = False
 def SetupGpio():
     """
