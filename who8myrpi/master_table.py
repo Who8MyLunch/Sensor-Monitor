@@ -18,7 +18,6 @@ import utility
 import errors
 
 
-
 # Static stuff.
 fname_config = 'config_data.yml'
 

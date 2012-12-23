@@ -83,26 +83,39 @@ def process_data_OLD(data_sens, header_sens):
 def load_data_files(files):
     """
     Load a number of data files, concatenate into single list of rows.
-    
+
     column_types = [['Time',        fusion_table.TYPE_DATETIME],
                     ['Kind',        fusion_table.TYPE_STRING],
                     ['Pin',         fusion_table.TYPE_NUMBER],
                     ['Temperature', fusion_table.TYPE_NUMBER],
                     ['Humidity',    fusion_table.TYPE_NUMBER]]
-    """
-    rows_data = []
-    for f in files:
-        data, column_names = io.read(f)
-        
-        rows = 
-        rows_data.extend(rows)
-            
-        row_proc, header_proc = process_data(rows_sens, header_sens)
 
-        data_proc.append(row_proc)
+    -   time_stamp: 1355600730.603534
+        kind: sample
+        pin: 23
+        Tf: 54.32
+        RH: 65.7
+    """
+    fields_to_columns = ['time_stamp',
+                         'kind',
+                         'pin',
+                         'Tf',
+                         'RH']
+    data_rows = []
+    for f in files:
+        data_samples, column_names = io.read(f)
+
+        for d in data_samples:
+            row = [d[n] for n in fields_to_columns]
+
+            seconds = row[0]
+            time_stamp = utility.pretty_timestamp(seconds)
+            row[0] = time_stamp
+
+            data_rows.append(row)
 
     # Done.
-    return rows_data, column_names
+    return data_rows, column_names
 
 
 ####################
@@ -183,10 +196,9 @@ def upload_data(service, tableId, path_data):
 
     # Setup.
     num_batch = 100
-    time_poll = 5.
-    status_interval = 60*10
-    
-    pattern_data = os.path.join(path_data, '201?-??-??', '*.yml')
+    time_poll = 30
+
+    pattern_data = os.path.join(path_data, 'data-201*.yml')
     folder_archive = 'archive'
 
     # Main processing loop.
@@ -197,30 +209,35 @@ def upload_data(service, tableId, path_data):
         keep_looping = True
 
         while keep_looping:
+            time_zero = time.time()
+            
             # List of candidate files.
             files = glob.glob(pattern_data)
             files.sort()
 
             # Got some files?
             if len(files) > 0:
+
                 time.sleep(0.01)  # small sleep to ensure that found files are fully written to disk.
 
                 files = files[:num_batch]
                 num_files = len(files)
 
-                data_proc, header_proc, num_rows_proc = load_data_files(files)
-                num_rows = len(data_proc)
+                data_rows, column_names = load_data_files(files)
+                num_rows = len(data_rows)
 
-                response = fusion_table.add_rows(service, tableId, data_proc)
+                # Upload the new data.
+                response = fusion_table.add_rows(service, tableId, data_rows)
 
-                info_summary = build_summary(num_rows_proc, info_summary)
-
+                # Did it work OK?
                 key = 'numRowsReceived'
                 if key in response:
                     num_uploaded = int(response[key])
 
                     # Everything worked OK?
                     if num_uploaded == num_rows:
+                        print('uploaded samples: %d' % num_uploaded)
+                        
                         # Move processed files to archive.
                         for f in files:
                             path_archive = os.path.join(os.path.dirname(f), folder_archive)
@@ -234,22 +251,16 @@ def upload_data(service, tableId, path_data):
                 else:
                     raise errors.Who8MyRPiError('Problem uploading data: %s' % response)
 
-            # Status update.
-            time_now = time.time()
-            time_elapsed = time_now - time_zero
-            if time_elapsed > status_interval:
-                # Status display.
-                pretty_status(time_now, info_summary)
+            # Wait a bit before searching for and uploading more data.
+            time_delta = time_poll - (time.time() - time_zero)   
 
-                # Reset.
-                time_zero = time_now
-                info_summary = None
-
-            # Pause.
-            time.sleep(time_poll)
+            if time_delta > 0:
+                print('wait: %.2f' % time_delta)
+                time.sleep(time_delta)
 
             # Repeat.
 
+            
     except who8mygoogle.Who8MyGoogleError as e:
         print('Caught error: %s' % e)
         return -1
@@ -260,6 +271,7 @@ def upload_data(service, tableId, path_data):
 
     except KeyboardInterrupt:
         # End it all when user hits ctrl-c.
+        print()
         print('User stop!')
 
     # Done.

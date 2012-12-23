@@ -9,3 +9,5 @@ pin_err: 8
 pin_power: 22
 
 power_cycle_interval: 600
+record_interval: 60
+upload_interval: 60

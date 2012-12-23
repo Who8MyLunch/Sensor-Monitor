@@ -45,7 +45,6 @@ def run_upload(info_config):
 
         print('Table ID: %s' % tableId)
 
-        1/0
         num_uploaded = upload.upload_data(service, tableId, path_data_work)
 
         if num_uploaded >= 0:
