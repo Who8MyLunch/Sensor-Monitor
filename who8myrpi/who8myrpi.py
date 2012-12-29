@@ -42,9 +42,13 @@ def run_upload(info_config):
     while keep_looping:
         # Setup Google API credentials.
         service, tableId = upload.connect_table(experiment_name, path_credentials)
-
         print('Table ID: %s' % tableId)
 
+        # Update master config table with tableId for current data table.
+        info_master = master_table.set(tableId)
+        # print(info_master)
+        
+        # Run the uploader function.  run until killed or an exception.
         num_uploaded = upload.upload_data(service, tableId, path_data_work)
 
         if num_uploaded >= 0:

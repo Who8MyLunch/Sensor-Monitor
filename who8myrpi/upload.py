@@ -21,62 +21,62 @@ import errors
 
 ##########################################
 
-def process_data_OLD(data_sens, header_sens):
-    """
-    Interpret recorded input data.
-    row = pin, RH_avg, RH_std, Tf_avg, Tf_std, Samples, Time
-    One pin per row.
+# def process_data_OLD(data_sens, header_sens):
+    # """
+    # Interpret recorded input data.
+    # row = pin, RH_avg, RH_std, Tf_avg, Tf_std, Samples, Time
+    # One pin per row.
 
-    Generate output data appropriate for upload to Fusion Table.
-    row = Time, RH_avg, RH_std, Tf_avg, Tf_std, Quality
-    """
-    ix_pin = 0
-    ix_RH_avg = 1
-    ix_RH_std = 2
-    ix_Tf_avg = 3
-    ix_Tf_std = 4
-    ix_Samples = 5
-    ix_Time = 6
+    # Generate output data appropriate for upload to Fusion Table.
+    # row = Time, RH_avg, RH_std, Tf_avg, Tf_std, Quality
+    # """
+    # ix_pin = 0
+    # ix_RH_avg = 1
+    # ix_RH_std = 2
+    # ix_Tf_avg = 3
+    # ix_Tf_std = 4
+    # ix_Samples = 5
+    # ix_Time = 6
 
-    # Data recorded during sensors' sampling interval.
-    times = [row[ix_Time] for row in data_sens]
-    times = [utility.pretty_timestamp(t) for t in times]
+    # # Data recorded during sensors' sampling interval.
+    # times = [row[ix_Time] for row in data_sens]
+    # times = [utility.pretty_timestamp(t) for t in times]
 
-    Tf_time_avg = np.asarray( [float(row[ix_Tf_avg]) for row in data_sens] )
-    RH_time_avg = np.asarray( [float(row[ix_RH_avg]) for row in data_sens] )
+    # Tf_time_avg = np.asarray( [float(row[ix_Tf_avg]) for row in data_sens] )
+    # RH_time_avg = np.asarray( [float(row[ix_RH_avg]) for row in data_sens] )
 
-    samples = np.asarray( [int(row[ix_Samples]) for row in data_sens])
+    # samples = np.asarray( [int(row[ix_Samples]) for row in data_sens])
 
-    # RH_time_std = [row[ix_RH_std] for row in data_sens]
-    # Tf_time_std = [row[ix_Tf_std] for row in data_sens]
+    # # RH_time_std = [row[ix_RH_std] for row in data_sens]
+    # # Tf_time_std = [row[ix_Tf_std] for row in data_sens]
 
-    # Interpret the data.
-    time_data = times[0]    # assume all time values are the same.
+    # # Interpret the data.
+    # time_data = times[0]    # assume all time values are the same.
 
-    Tf_data = np.round( np.median(Tf_time_avg), 2)
-    RH_data = np.round( np.median(RH_time_avg), 2)
+    # Tf_data = np.round( np.median(Tf_time_avg), 2)
+    # RH_data = np.round( np.median(RH_time_avg), 2)
 
-    Tf_std_data = np.round( np.std(Tf_time_avg), 2)
-    RH_std_data = np.round( np.std(RH_time_avg), 2)
+    # Tf_std_data = np.round( np.std(Tf_time_avg), 2)
+    # RH_std_data = np.round( np.std(RH_time_avg), 2)
 
-    samples_high = np.max(samples)
-    samples_med = np.median(samples)
-    samples_low = np.min(samples)
+    # samples_high = np.max(samples)
+    # samples_med = np.median(samples)
+    # samples_low = np.min(samples)
 
-    quality_A = samples_med / 15.  # maximum numberof samples is around 14 - 15.
-    quality_B = samples_low / 15. # maximum numberof samples is around 14 - 15.
+    # quality_A = samples_med / 15.  # maximum numberof samples is around 14 - 15.
+    # quality_B = samples_low / 15. # maximum numberof samples is around 14 - 15.
 
-    # Finish.
-    data_numbers = [Tf_data, RH_data, Tf_std_data, RH_std_data, quality_A, quality_B]
-    data_numbers = ['%.2f' % val for val in data_numbers]
+    # # Finish.
+    # data_numbers = [Tf_data, RH_data, Tf_std_data, RH_std_data, quality_A, quality_B]
+    # data_numbers = ['%.2f' % val for val in data_numbers]
 
-    data_out = [time_data]
-    data_out.extend(data_numbers)
+    # data_out = [time_data]
+    # data_out.extend(data_numbers)
 
-    header_out = ['Time', 'Temperature', 'Humidity', 'Tf_std', 'RH_std', 'Quality_A', 'Quality_B']
+    # header_out = ['Time', 'Temperature', 'Humidity', 'Tf_std', 'RH_std', 'Quality_A', 'Quality_B']
 
-    # Done.
-    return data_out, header_out
+    # # Done.
+    # return data_out, header_out
 
 
 
@@ -96,24 +96,30 @@ def load_data_files(files):
         Tf: 54.32
         RH: 65.7
     """
-    fields_to_columns = ['time_stamp',
+    fields_to_columns = ['seconds',
                          'kind',
                          'pin',
                          'Tf',
                          'RH']
     data_rows = []
     for f in files:
-        data_samples, column_names = io.read(f)
+        data_samples, meta = io.read(f)
 
-        for d in data_samples:
-            row = [d[n] for n in fields_to_columns]
+        if data_samples is None:        
+            print('no data in file: %s' % os.path.basename(f))
+        else:
+            for d in data_samples:
+                row = [d[n] for n in fields_to_columns]
 
-            seconds = row[0]
-            time_stamp = utility.pretty_timestamp(seconds)
-            row[0] = time_stamp
+                seconds = row[0]
+                time_stamp = utility.pretty_timestamp(seconds)
+                row.insert(0, time_stamp)
 
-            data_rows.append(row)
+                data_rows.append(row)
 
+    column_names = fields_to_columns
+    column_names.insert(0, 'DateTime')
+    
     # Done.
     return data_rows, column_names
 
@@ -159,7 +165,8 @@ def pretty_status(time_now, info_summary=None):
 #######################################3
 
 # Static stuff.
-column_types = [['Time',        fusion_table.TYPE_DATETIME],
+column_types = [['DateTime',    fusion_table.TYPE_DATETIME],
+                ['Seconds',     fusion_table.TYPE_NUMBER],
                 ['Kind',        fusion_table.TYPE_STRING],
                 ['Pin',         fusion_table.TYPE_NUMBER],
                 ['Temperature', fusion_table.TYPE_NUMBER],
@@ -196,7 +203,7 @@ def upload_data(service, tableId, path_data):
 
     # Setup.
     num_batch = 100
-    time_poll = 30
+    time_poll = 5
 
     pattern_data = os.path.join(path_data, 'data-201*.yml')
     folder_archive = 'archive'
@@ -255,7 +262,7 @@ def upload_data(service, tableId, path_data):
             time_delta = time_poll - (time.time() - time_zero)   
 
             if time_delta > 0:
-                print('wait: %.2f' % time_delta)
+                # print('wait: %.2f' % time_delta)
                 time.sleep(time_delta)
 
             # Repeat.
