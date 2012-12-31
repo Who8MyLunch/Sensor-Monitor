@@ -3,7 +3,9 @@ from __future__ import division, print_function, unicode_literals
 
 import os
 import argparse
+import time
 
+import numpy as np
 import data_io as io
 
 import utility
@@ -12,8 +14,7 @@ import upload
 import sensors
 import dht22
 
-from coroutine import coroutine
-
+import who8mygoogle
 
 ###############################
 
@@ -58,9 +59,10 @@ def initialize_sensors(info_config):
         dht22._digitalWrite(pin_err, dht22._LOW)
 
     # Create data recording channels.
-    channels, queue == sensors.start_channels(pins_data, pin_err=pin_err, pin_ok=pin_ok)
+    channels, queue = sensors.start_channels(pins_data, pin_err=pin_err, pin_ok=pin_ok)
+   
     ok = sensors.check_channels_ok(channels, verbose=True)
-
+    
     if not ok:
         raise ValueError('Data channels not ready.')
 
@@ -73,14 +75,14 @@ def initialize_upload(info_config):
     """
     Prepare Fusion Table service.
     """
-
+    path_credentials = os.path.join(path_to_module(), 'credentials')
+    
     # Setup Google API credentials.
-    service, tableId = upload.connect_table(experiment_name, path_credentials)
-    # print('Table ID: %s' % tableId)
+    service, tableId = upload.connect_table(info_config['experiment_name'], path_credentials)
+    print('Initialized, Data Table ID: %s' % tableId)
 
     # Update master config table with tableId for current data table.
     master_table.set(info_config, tableId)
-    # print(info_master)
 
     return service, tableId
 
@@ -104,17 +106,28 @@ def record_data(channels, queue, service, tableId, info_config):
             # Pass the data along to the uploader.
             sink.send(samples)
 
+            # Pretty status message.
+            t = samples[0]['seconds']
+            fmt = '%Y-%m-%d %H-%M-%S'
+            time_stamp = utility.pretty_timestamp(t, fmt)
+            print('samples:%3d [%s]' % (len(samples), time_stamp) )
+
             # Do a power cycle?
             if time.time() - time_power_zero > power_cycle_interval:
                 print('Power cycle')
                 power_cycle(channels, info_config)
                 time_power_zero = time.time()
                 
+        except who8mygoogle.errors.Who8MyGoogleError as e:
+            print()
+            print('Error: %s' % e.message)
+            break
+            
         except KeyboardInterrupt:
             print()
             print('User stop!')
             break
-
+            
     # Finish.
     sink.close()
 
@@ -234,9 +247,9 @@ def main():
     #
     try:
         # Initialize stuff.
-        print('Initializing...')
+        print('Initialize')
         channels, queue = initialize_sensors(info_config)
-        service, tableID = initialize_upload(info_config)
+        service, tableId = initialize_upload(info_config)
 
         # Start recording data.
         print('Begin recording: %s' % info_config['pins_data'])

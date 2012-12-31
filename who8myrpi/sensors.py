@@ -196,6 +196,8 @@ class Channel(threading.Thread):
         self.keep_running = False
         self.queue = queue
 
+        print('Channel start: %d' % self.pin)
+        
         # Done.
 
 
@@ -237,7 +239,7 @@ class Channel(threading.Thread):
 
             # Repeat loop.
 
-        print('Channel exit: %d.' % self.pin)
+        print('Channel exit: %d' % self.pin)
         self.status_indicator(-1)
 
         # Done.
@@ -453,24 +455,23 @@ def unpause_channels(channels):
         c.record_data = True
 
 
-def start_channels(pins_data):
+def start_channels(pins_data, pin_err=None, pin_ok=None):
     """
     Turn on all recording channels.
     Verify all are recording valid data.
     """
-
     # Build queue for collecting all data samples.
     queue = Queue.Queue(maxsize=1000)
 
     # Build and start the channel recorders.
     channels = []
     for p in pins_data:
-        c = Channel(p, queue=queue) #, time_wait=time_wait, time_history=time_history)
+        c = Channel(p, queue=queue, pin_err=pin_err, pin_ok=pin_ok)
         c.start()
         channels.append(c)
 
         # Random small pause before creating next channel.
-        dt = random.uniform(0.0, 0.1)
+        dt = random.uniform(0.05, 0.25)
         time.sleep(dt)
 
     # Done.
@@ -482,35 +483,36 @@ def check_channels_ok(channels, verbose=False):
     """
     Ensure all channels are recording ok.
     """
-    all_channels_ok = False
+    count_ready = 0
     time_wait_max = 60  # seconds
     time_elapsed = 0.
     time_zero = time.time()
-
-    while not (time_elapsed > time_wait_max or all_channels_ok):
+    
+    while not (time_elapsed > time_wait_max or count_ready == len(channels)):
         # Keep looping until all channels pass, or until timeout.
-        time.sleep(1)
-        count_ready = 0
+        time.sleep(.1)
+        count_ready_test = 0
         for c in channels:
             if c.data_latest is not None:
-                count_ready += 1
+                count_ready_test += 1
 
-        if count_ready == len(channels):
-            # Everything is good to go.
-            all_channels_ok = True
+        if count_ready_test > count_ready:
+            count_ready = count_ready_test
+            if verbose:
+                print('Channels ok: %d of %d' % (count_ready, len(channels)))
 
         time_elapsed = time.time() - time_zero
-        if verbose:
-            print('channels ok: %d of %d' % (count_ready, len(channels)))
-
+        
     # Finish.
-    if not all_channels_ok:
-        stop_all_channels(channels)
+    value = True
+    if count_ready < len(channels):
+        value = False
+        stop_channels(channels)
         # raise ValueError('Only %d channels ready (out of %d) after waiting %s seconds.' %
                          # (count_ready, len(channels), time_wait_max))
 
     # Done.
-    return all_channels_ok
+    return value
 
 
 #######################################################
@@ -535,12 +537,6 @@ def data_collector(queue, time_interval=30):
                 samples.append(info)
 
             if len(samples) > 0:
-                # Pretty status message.
-                t = data_collected[0]['seconds']
-                fmt = '%Y-%m-%d %H-%M-%S'
-                time_stamp = utility.pretty_timestamp(t, fmt)
-                print('write:%3d [%s]' % (len(samples), time_stamp) )
-
                 # Send data to the caller.
                 yield samples
 

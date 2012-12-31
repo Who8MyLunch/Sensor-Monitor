@@ -18,6 +18,7 @@ import who8mygoogle.authorize as authorize
 import utility
 import errors
 
+from coroutine import coroutine
 
 ##########################################
 
@@ -202,9 +203,6 @@ def process_samples(samples):
                          'Tf',
                          'RH']
 
-    column_names = fields_to_columns
-    column_names.insert(0, 'DateTime')
-
     # Loop over all samples.  Convert each to a Fusion Table row.
     data_rows = []
     for info in samples:
@@ -216,11 +214,16 @@ def process_samples(samples):
 
         data_rows.append(row)
 
+    # Finish.
+    column_names = fields_to_columns
+    column_names.insert(0, 'DateTime')
+
     # Done.
     return data_rows, column_names
 
 
 
+@coroutine
 def data_uploader(service, tableId):
     """
     Coroutine to receive new data and upload to Google Fusion table.
@@ -230,30 +233,32 @@ def data_uploader(service, tableId):
         try:
             # Receive new data samples.
             samples = (yield)
-            rows = process_samples(samples)
+            data_rows, column_names = process_samples(samples)
 
             # Upload the new data.
-            num_rows = len(rows)
+            num_rows = len(data_rows)
             if num_rows > 0:
-                response = fusion_table.add_rows(service, tableId, rows)
-
+                try:
+                    response = fusion_table.add_rows(service, tableId, data_rows)
+                except who8mygoogle.errors.Who8MyGoogleError as e:
+                    raise errors.Who8MyRPiError(e)
+                    
                 # Postprocess.
                 key = 'numRowsReceived'
                 if key in response:
                     num_uploaded = int(response[key])
 
                     # Everything worked OK?
-                    if num_uploaded == num_rows:
-                        print('uploaded: %d' % num_uploaded)
-                    else:
+                    if num_uploaded != num_rows:
                         raise errors.Who8MyRPiError('Problem uploading data: num_uploaded != num_rows: %s, %s' % (num_uploaded, num_rows))
                 else:
                     raise errors.Who8MyRPiError('Problem uploading data: %s' % response)
 
         except GeneratorExit:
-            print()
             print('Data uploader: GeneratorExit')
             keep_looping = False
+            
+
          
     # Done.
 
