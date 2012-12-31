@@ -26,7 +26,6 @@ import errors
     # Interpret recorded input data.
     # row = pin, RH_avg, RH_std, Tf_avg, Tf_std, Samples, Time
     # One pin per row.
-
     # Generate output data appropriate for upload to Fusion Table.
     # row = Time, RH_avg, RH_std, Tf_avg, Tf_std, Quality
     # """
@@ -37,49 +36,61 @@ import errors
     # ix_Tf_std = 4
     # ix_Samples = 5
     # ix_Time = 6
-
     # # Data recorded during sensors' sampling interval.
     # times = [row[ix_Time] for row in data_sens]
     # times = [utility.pretty_timestamp(t) for t in times]
-
     # Tf_time_avg = np.asarray( [float(row[ix_Tf_avg]) for row in data_sens] )
     # RH_time_avg = np.asarray( [float(row[ix_RH_avg]) for row in data_sens] )
-
     # samples = np.asarray( [int(row[ix_Samples]) for row in data_sens])
-
     # # RH_time_std = [row[ix_RH_std] for row in data_sens]
     # # Tf_time_std = [row[ix_Tf_std] for row in data_sens]
-
     # # Interpret the data.
     # time_data = times[0]    # assume all time values are the same.
-
     # Tf_data = np.round( np.median(Tf_time_avg), 2)
     # RH_data = np.round( np.median(RH_time_avg), 2)
-
     # Tf_std_data = np.round( np.std(Tf_time_avg), 2)
     # RH_std_data = np.round( np.std(RH_time_avg), 2)
-
     # samples_high = np.max(samples)
     # samples_med = np.median(samples)
     # samples_low = np.min(samples)
-
     # quality_A = samples_med / 15.  # maximum numberof samples is around 14 - 15.
     # quality_B = samples_low / 15. # maximum numberof samples is around 14 - 15.
-
     # # Finish.
     # data_numbers = [Tf_data, RH_data, Tf_std_data, RH_std_data, quality_A, quality_B]
     # data_numbers = ['%.2f' % val for val in data_numbers]
-
     # data_out = [time_data]
     # data_out.extend(data_numbers)
-
     # header_out = ['Time', 'Temperature', 'Humidity', 'Tf_std', 'RH_std', 'Quality_A', 'Quality_B']
-
     # # Done.
     # return data_out, header_out
+# def build_summary(num_rows, info_summary=None):
+    # """
+    # Summary of collected data.
+    # """
+    # if info_summary is None:
+        # info_summary = {}
+    # key = 'num_uploaded'
+    # if not key in info_summary:
+        # info_summary[key] = 0
+    # info_summary[key] += num_rows
+    # # Done.
+    # return info_summary
+# def pretty_status(time_now, info_summary=None):
+    # """
+    # Display pretty status update.
+    # """
+    # if info_summary is None:
+        # info_summary = {'num_uploaded': 0}
+    # d = datetime.datetime.utcfromtimestamp(time_now)
+    # time_stamp = d.strftime('%Y-%m-%d %H:%M:%S')
+    # key = 'num_uploaded'
+    # num_uploaded_str = '%3d' % info_summary[key]
+    # msg = '%s || %s' % (time_stamp, num_uploaded_str)
+    # print(msg)
+    # # Done.
 
 
-
+    
 def load_data_files(files):
     """
     Load a number of data files, concatenate into single list of rows.
@@ -123,46 +134,6 @@ def load_data_files(files):
     # Done.
     return data_rows, column_names
 
-
-####################
-
-def build_summary(num_rows, info_summary=None):
-    """
-    Summary of collected data.
-    """
-    if info_summary is None:
-        info_summary = {}
-
-    key = 'num_uploaded'
-    if not key in info_summary:
-        info_summary[key] = 0
-
-    info_summary[key] += num_rows
-
-    # Done.
-    return info_summary
-
-
-
-def pretty_status(time_now, info_summary=None):
-    """
-    Display pretty status update.
-    """
-    if info_summary is None:
-        info_summary = {'num_uploaded': 0}
-
-    d = datetime.datetime.utcfromtimestamp(time_now)
-    time_stamp = d.strftime('%Y-%m-%d %H:%M:%S')
-
-    key = 'num_uploaded'
-    num_uploaded_str = '%3d' % info_summary[key]
-
-    msg = '%s || %s' % (time_stamp, num_uploaded_str)
-    print(msg)
-
-    # Done.
-
-#######################################3
 
 # Static stuff.
 column_types = [['DateTime',    fusion_table.TYPE_DATETIME],
@@ -234,29 +205,30 @@ def upload_data(service, tableId, path_data):
                 num_rows = len(data_rows)
 
                 # Upload the new data.
-                response = fusion_table.add_rows(service, tableId, data_rows)
+                if num_rows > 0:
+                    response = fusion_table.add_rows(service, tableId, data_rows)
 
-                # Did it work OK?
-                key = 'numRowsReceived'
-                if key in response:
-                    num_uploaded = int(response[key])
+                    # Postprocess.
+                    key = 'numRowsReceived'
+                    if key in response:
+                        num_uploaded = int(response[key])
 
-                    # Everything worked OK?
-                    if num_uploaded == num_rows:
-                        print('uploaded samples: %d' % num_uploaded)
-                        
-                        # Move processed files to archive.
-                        for f in files:
-                            path_archive = os.path.join(os.path.dirname(f), folder_archive)
-                            if not os.path.isdir(path_archive):
-                                os.mkdir(path_archive)
+                        # Everything worked OK?
+                        if num_uploaded == num_rows:
+                            print('uploaded: %d' % num_uploaded)
+                            
+                            # Move processed files to archive.
+                            for f in files:
+                                path_archive = os.path.join(os.path.dirname(f), folder_archive)
+                                if not os.path.isdir(path_archive):
+                                    os.mkdir(path_archive)
 
-                            shutil.move(f, path_archive)
+                                shutil.move(f, path_archive)
+                        else:
+                            raise errors.Who8MyRPiError('Problem uploading data since num_uploaded != num_rows: %s, %s' % (num_uploaded, num_rows))
+
                     else:
-                        raise errors.Who8MyRPiError('Problem uploading data since num_uploaded != num_rows: %s, %s' % (num_uploaded, num_rows))
-
-                else:
-                    raise errors.Who8MyRPiError('Problem uploading data: %s' % response)
+                        raise errors.Who8MyRPiError('Problem uploading data: %s' % response)
 
             # Wait a bit before searching for and uploading more data.
             time_delta = time_poll - (time.time() - time_zero)   

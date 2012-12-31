@@ -28,32 +28,6 @@ def path_to_module():
 ####################
 
 
-def set_status_led(status, pin_ok=None, pin_err=None):
-    """
-    Configure and set status LEDs.
-    """
-    if not (pin_ok == None or pin_err == None):
-        dht22._pinMode(pin_ok, dht22._OUTPUT)
-        dht22._pinMode(pin_err, dht22._OUTPUT)
-
-        if status > 0:
-            # Ok
-            dht22._digitalWrite(pin_ok, dht22._HIGH)
-            dht22._digitalWrite(pin_err, dht22._LOW)
-        elif status == 0:
-            # Problem.
-            dht22._digitalWrite(pin_ok, dht22._LOW)
-            dht22._digitalWrite(pin_err, dht22._HIGH)
-        else:
-            # Unknown.
-            dht22._digitalWrite(pin_ok, dht22._LOW)
-            dht22._digitalWrite(pin_err, dht22._LOW)
-    else:
-        # Do nothing.
-        pass
-
-    # Done.
-
 
 def check_pin_connected(pin_data):
     """
@@ -67,6 +41,7 @@ def check_pin_connected(pin_data):
         return True
 
     # Done.
+
 
 
 def reset_power(pin_power=None, time_sleep=None):
@@ -212,6 +187,7 @@ _time_history_default = 10*60
 
 class Channel(threading.Thread):
     def __init__(self, pin, queue=None,
+                 pin_err=None, pin_ok=None,
                  time_wait=None, time_history=None, *args, **kwargs):
         """
         Record data from specified sensor pin.
@@ -230,6 +206,9 @@ class Channel(threading.Thread):
 
         if queue is None:
             queue = Queue.Queue()
+
+        self.pin_err = pin_err
+        self.pin_ok = pin_ok
 
         self.num_min_history = 10
         self.check_threshold = 25
@@ -282,11 +261,43 @@ class Channel(threading.Thread):
             if time_delta > 0:
                 self.sleep(time_delta)
 
-            # Repeat.
-
-        print('exit thread for pin %d.' % self.pin)
+            # Repeat loop.
+            
+        print('Channel exit: %d.' % self.pin)
+        self.status_indicator(-1)
 
         # Done.
+
+
+    def status_indicator(self, ok):
+        """
+        Configure and set status LEDs.
+
+        ok  > 0: 'ok'
+        ok == 0: 'error'
+        ok  < 0: 'off'
+        """
+        if not (self.pin_ok == None or self.pin_err == None):
+            # Status pins are defined.
+            # These pins assumed already be configured for output.
+            if ok > 0:
+                # Everything is OK.
+                dht22._digitalWrite(self.pin_ok, dht22._HIGH)
+                dht22._digitalWrite(self.pin_err, dht22._LOW)
+            elif ok == 0:
+                # Not ok.  Problem.
+                dht22._digitalWrite(self.pin_err, dht22._HIGH)
+                dht22._digitalWrite(self.pin_ok, dht22._LOW)
+            else:
+                # Off.
+                dht22._digitalWrite(self.pin_err, dht22._LOW)
+                dht22._digitalWrite(self.pin_ok, dht22._LOW)
+
+        else:
+            # No status pins configured.  Do nothing.
+            pass
+
+    # Done.
 
 
 
@@ -444,153 +455,160 @@ class Channel(threading.Thread):
 
 
 
-####################################
+##################################################
 
-def stop_all_channels(channels):
+def stop_channels(channels):
     for c in channels:
         c.stop()
     for c in channels:
         c.join()
 
+        
 def pause_channels(channels):
     # print('Pause channels')
     for c in channels:
         c.record_data = False
 
+        
 def unpause_channels(channels):
     # print('Unpause channels')
     for c in channels:
         c.record_data = True
 
 
+def start_channels(pins_data):
+    """
+    Turn on all recording channels.
+    Verify all are recording valid data.
+    """
 
-def collect_data(pins_data, path_data,
-                 power_cycle_interval=60*30,
+    # Build queue for collecting all data samples.
+    queue = Queue.Queue(maxsize=1000)
+
+    # Build and start the channel recorders.
+    channels = []
+    for p in pins_data:
+        c = Channel(p, queue=queue) #, time_wait=time_wait, time_history=time_history)
+        c.start()
+        channels.append(c)
+
+        # Random small pause before creating next channel.
+        dt = random.uniform(0.0, 0.1)
+        time.sleep(dt)
+
+    # Done.
+    return channels, queue
+
+
+
+def check_channels_ok(channels, verbose=False)
+    """
+    Ensure all channels are recording ok.
+    """
+    all_channels_ok = False
+    time_wait_max = 60  # seconds
+    time_elapsed = 0.
+    time_zero = time.time()
+
+    while not (time_elapsed > time_wait_max or all_channels_ok):
+        # Keep looping until all channels pass, or until timeout.
+        time.sleep(1)
+        count_ready = 0
+        for c in channels:
+            if c.data_latest is not None:
+                count_ready += 1
+
+        if count_ready == len(channels):
+            # Everything is good to go.
+            all_channels_ok = True
+
+        time_elapsed = time.time() - time_zero
+        if verbose:
+            print('channels ok: %d of %d' % (count_ready, len(channels)))
+
+    # Finish.
+    if not all_channels_ok:
+        stop_all_channels(channels)
+        # raise ValueError('Only %d channels ready (out of %d) after waiting %s seconds.' %
+                         # (count_ready, len(channels), time_wait_max))
+
+    # Done.
+    return all_channels_ok
+
+
+#######################################################
+
+def collect_data(pins_data,
+                 # power_cycle_interval=60*30,
                  pin_ok=None, pin_err=None, pin_power=None):
     """
     Record data for an experiment from multiple sensors.
     Save data to files.
 
     status_interval = seconds between status updates.
-    """
 
-    if not os.path.isdir(path_data):
-        os.mkdir(path_data)
+    power_cycle_interval: time in seconds after which sensors are power cycled.
+    """
 
     if np.isscalar(pins_data):
         pins_data = [pins_data]
 
-    dht22.SetupGpio()
 
-    # Power up the sensors.
-    if pin_power is not None:
-        dht22._pinMode(pin_power, dht22._OUTPUT)
-        dht22._digitalWrite(pin_power, dht22._HIGH)
-        time.sleep(5)
 
-    # Build and start the channel recorders.
-    queue = Queue.Queue(maxsize=1000)
 
-    # time_wait = None
-    # time_history = None
-    channels = []
-    for p in pins_data:
-        c = Channel(p, queue=queue) #, time_wait=time_wait, time_history=time_history)
 
-        dt = random.uniform(0.1, 0.2)
-        time.sleep(dt)
 
-        c.start()
-        channels.append(c)
 
     #
-    # Ensure all channels are recording ok.
+    # Main data recording loop.
     #
-    all_channels_ok = False
-    time_wait_max = 60  # seconds
-    time_elapsed = 0.
-    time_zero = time.time()
+    time_status_zero = time.time()
+    time_power_zero = time_status_zero
 
-    try:
-        while not (time_elapsed > time_wait_max or all_channels_ok):
+    time_wait_poll = 30   # seconds
 
-            time.sleep(5)
-            count_ready = 0
-            for c in channels:
-                if c.data_latest is not None:
-                    count_ready += 1
+    while True:
+        time_poll_zero = time.time()
 
-            if count_ready == len(channels):
-                # Everything is good to go.
-                all_channels_ok = True
+        data_collected = []
+        while not queue.empty():
+            info = queue.get()
+            data_collected.append(info)
 
-            time_elapsed = time.time() - time_zero
-            print('channels ok: %d of %d' % (count_ready, len(channels)))
+        if len(data_collected) > 0:
+            # Save collected data to file.
+            t = data_collected[0]['seconds']
+            fmt = '%Y-%m-%d %H-%M-%S'
 
+            time_stamp = utility.pretty_timestamp(t, fmt)
+            f = os.path.join(path_data, 'data-%s.yml' % time_stamp)
+            io.write(f, data_collected)
 
-        if not all_channels_ok:
-            stop_all_channels(channels)
-            raise ValueError('Only %d channels ready (out of %d) after waiting %s seconds.' %
-                             (count_ready, len(channels), time_wait_max))
+            print('write:%3d [%s]' % (len(data_collected), time_stamp) )
 
-        #
-        # Main data recording loop.
-        #
-        time_status_zero = time.time()
-        time_power_zero = time_status_zero
+        # Power cycle the sensors.
+        if time.time() - time_power_zero > power_cycle_interval:
+            print('Power cycle')
+            pause_channels(channels)
+            reset_power(pin_power)
+            unpause_channels(channels)
 
-        time_wait_poll = 30   # seconds
+            time_power_zero = time.time()
 
-        while True:
-            time_poll_zero = time.time()
+        # End of the loop.  Wait a bit before doing it all over again.
+        time_delta = time_wait_poll - (time.time() - time_poll_zero)
+        if time_delta > 0:
+            # print('wait: %.2f' % time_delta)
+            time.sleep(time_delta)
 
-            data_collected = []
-            while not queue.empty():
-                info = queue.get()
-                data_collected.append(info)
-
-            if len(data_collected) > 0:
-                # Save collected data to file.
-                t = data_collected[0]['seconds']
-                fmt = '%Y-%m-%d %H-%M-%S'
-
-                time_stamp = utility.pretty_timestamp(t, fmt)
-                f = os.path.join(path_data, 'data-%s.yml' % time_stamp)
-                io.write(f, data_collected)
-
-                print('write:%3d [%s]' % (len(data_collected), time_stamp) )
-
-            # Status display.
-            # if time.time() - time_status_zero > status_interval:
-                # pretty_status(time_now, info_summary)
-                # time_status_zero = time.time()
-
-            # Power cycle the sensors.
-            if time.time() - time_power_zero > power_cycle_interval:
-                print('Power cycle')
-                pause_channels(channels)
-                reset_power(pin_power)
-                unpause_channels(channels)
-
-                time_power_zero = time.time()
-
-            # End of the loop.  Wait a bit before doing it all over again.
-            time_delta = time_wait_poll - (time.time() - time_poll_zero)
-            if time_delta > 0:
-                # print('wait: %.2f' % time_delta)
-                time.sleep(time_delta)
-
-    except KeyboardInterrupt:
-        # End it all when user hits ctrl-C.
-        print()
-        print('User stop!')
-
-        set_status_led(0, pin_ok=pin_ok, pin_err=pin_err)
-
-        stop_all_channels(channels)
-
-        if pin_power is not None:
-            dht22._digitalWrite(pin_power, dht22._LOW)
+    # except KeyboardInterrupt:
+        # # End it all when user hits ctrl-C.
+        # print()
+        # print('User stop!')
+        # set_status_led(0, pin_ok=pin_ok, pin_err=pin_err)
+        # stop_all_channels(channels)
+        # if pin_power is not None:
+            # dht22._digitalWrite(pin_power, dht22._LOW)
 
 
     # Done.
