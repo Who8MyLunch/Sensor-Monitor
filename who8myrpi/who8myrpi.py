@@ -12,8 +12,11 @@ import upload
 import sensors
 import dht22
 
+from coroutine import coroutine
+
+
 ###############################
-# Helpers.
+
 def path_to_module():
     p = os.path.dirname(os.path.abspath(__file__))
     return p
@@ -21,63 +24,17 @@ def path_to_module():
 ###############################
 
 
-def run_upload(info_config):
-    """
-    Do the work to upload to my Fusion Table.
-    """
-
-    # Config.
-    experiment_name = info_config['experiment_name']
-
-    path_credentials = os.path.join(path_to_module(), 'credentials')
-    path_data = os.path.join(path_to_module(), 'data')
-
-    folder_experiment = utility.valid_filename(experiment_name)
-    path_data_work = os.path.join(path_data, folder_experiment)
-
-
-    max_allowed_resets = 1000
-    num_resets = 0
-    keep_looping = True
-
-    while keep_looping:
-        # Setup Google API credentials.
-        service, tableId = upload.connect_table(experiment_name, path_credentials)
-        print('Table ID: %s' % tableId)
-
-        # Update master config table with tableId for current data table.
-        info_master = master_table.set(tableId)
-        # print(info_master)
-
-        # Run the uploader function.  Run until killed or exception.
-        num_uploaded = upload.upload_data(service, tableId, path_data_work)
-
-        if num_uploaded >= 0:
-            # Clean exit.
-            keep_looping = False
-        else:
-            # Reset and try again.
-            num_resets += 1
-
-            if num_resets > max_allowed_resets:
-                keep_looping = False
-                raise Exception('Max number of resets exceeded.')
-            else:
-                keep_looping = True
-                print()
-                print('Reset API connection!')
-
-    # Done.
-
-#############################################33
-
-def initialize(info_config):
+def initialize_sensors(info_config):
     """
     Do all setup operations necesary to get ready prior to recording data.
     """
-    
+
     # Config data.
     pins_data = info_config['pins_data']
+    if np.isscalar(pins_data):
+        pins_data = [pins_data]
+        info_config['pins_data'] = pins_data
+
     pin_ok = info_config['pin_ok']
     pin_err = info_config['pin_err']
     pin_power = info_config['pin_power']
@@ -112,48 +69,58 @@ def initialize(info_config):
 
 
 
-def record_data(channels, queue):
+def initialize_upload(info_config):
+    """
+    Prepare Fusion Table service.
+    """
+
+    # Setup Google API credentials.
+    service, tableId = upload.connect_table(experiment_name, path_credentials)
+    # print('Table ID: %s' % tableId)
+
+    # Update master config table with tableId for current data table.
+    master_table.set(info_config, tableId)
+    # print(info_master)
+
+    return service, tableId
+
+
+
+def record_data(channels, queue, service, tableId, info_config):
     """
     Do the work to record data from sensors.
     """
 
+    power_cycle_interval = 10*60  # seconds
+
+    # Setup.
+    source = sensors.data_collector(queue)        # data producer / generator
+    sink = upload.data_uploader(service, tableId) # consumer coroutine
+
     # Main processing loop.
-    while True:
-        # Record some data.
+    time_power_zero = time.time()
+    for samples in source:
+        try:
+            # Pass the data along to the uploader.
+            sink.send(samples)
 
-        # Upload data to online storage.
-
-        # Repeat.
-
+            # Do a power cycle?
+            if time.time() - time_power_zero > power_cycle_interval:
+                print('Power cycle')
+                power_cycle(channels, info_config)
+                time_power_zero = time.time()
+                
+        except KeyboardInterrupt:
+            print()
+            print('User stop!')
+            break
 
     # Finish.
+    sink.close()
 
     # Done.
 
 
-
-
-
-
-
-
-
-
-    folder_experiment = utility.valid_filename(experiment_name)
-    path_data_work = os.path.join(path_data, folder_experiment)
-
-    print('Begin data recording')
-    sensors.collect_data(pins_data, path_data_work,
-                         pin_ok=pin_ok,
-                         pin_err=pin_err,
-                         pin_power=pin_power,
-                         power_cycle_interval=power_cycle_interval)
-
-    print('End data recording')
-
-    # Done.
-
-    
 
 def finalize(channels, info_config):
     """
@@ -169,14 +136,76 @@ def finalize(channels, info_config):
 
     # Done.
 
-
 ##################################################
 
 
+def power_cycle(channels, info_config, time_off=None):
+    """
+    Power cycle all conected sensors.
+    """
+    if time_off is None:
+        time_off = 30
+
+    if info_config['pin_power'] is None:
+        # Nothing to do.
+        pass
+    else:
+        # Do it.
+        sensors.pause_channels(channels)
+
+        time.sleep(0.01)
+        dht22._digitalWrite(info_config['pin_power'], dht22._LOW)
+
+        time.sleep(time_off)
+
+        dht22._digitalWrite(info_config['pin_power'], dht22._HIGH)
+        time.sleep(0.01)
+
+        sensors.unpause_channels(channels)
+
+    # Done.
+
+##################################################
+
+# @coroutine
+# def data_uploader(info_config):
+    # """
+    # Do the work to upload to my Fusion Table.
+    # """
+    # # Config.
+    # experiment_name = info_config['experiment_name']
+    # path_credentials = os.path.join(path_to_module(), 'credentials')
+    # max_allowed_resets = 1000
+    # num_resets = 0
+    # # Setup Google API credentials.
+    # service, tableId = upload.connect_table(experiment_name, path_credentials)
+    # # print('Table ID: %s' % tableId)
+    # # Update master config table with tableId for current data table.
+    # info_master = master_table.set(tableId)
+    # # print(info_master)
+        # # Run the uploader function.  Run until killed or exception.
+        # num_uploaded = upload.upload_data(service, tableId, path_data_work)
+        # if num_uploaded >= 0:
+            # # Clean exit.
+            # keep_looping = False
+        # else:
+            # # Reset and try again.
+            # num_resets += 1
+            # if num_resets > max_allowed_resets:
+                # keep_looping = False
+                # raise Exception('Max number of resets exceeded.')
+            # else:
+                # keep_looping = True
+                # print()
+                # print('Reset API connection!')
+    # # Done.
+
+
+##################################################
 
 def main():
     """
-    This is the entry point for the main application.
+    This is the entry point for the application.
     """
 
     #
@@ -204,27 +233,24 @@ def main():
     # Do it.
     #
     try:
-        channels, queue = initialize(info_config)
-        
-        # Timing, FYI.
-        time.sleep(1)
-        pin_timing = info_config['pins_data'][0]
-
-        dt = sensors.measure_timing.timing(pin=pin_timing, time_poll=10)
-        print('Timing: %.2f us' % (dt*1000))
+        # Initialize stuff.
+        print('Initializing...')
+        channels, queue = initialize_sensors(info_config)
+        service, tableID = initialize_upload(info_config)
 
         # Start recording data.
-        print('Record from data pins: %s' % info_config['pins_data'])
-        record_data(channels, queue)
+        print('Begin recording: %s' % info_config['pins_data'])
+        record_data(channels, queue, service, tableId, info_config)
 
     except KeyboardInterrupt:
         # Stop it all when user hits ctrl-C.
         print()
-        print('User stop!')
-    
+        print('Main: User stop!')
+
     # Finish.
+    print('Stop recording')
     finalize(channels, info_config)
-    
+
     # Done.
     print('Done.')
 

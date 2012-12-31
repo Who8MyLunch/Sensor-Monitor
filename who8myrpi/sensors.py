@@ -3,70 +3,23 @@ from __future__ import division, print_function, unicode_literals
 
 import os
 import time
-import datetime
 import threading
 import Queue
 import random
 
 import numpy as np
-import pytz
-
-import data_io as io
-# import data_cache
 
 import dht22
-import measure_timing
 import utility
 
-#########################
+##################################################
 # Helper functions.
 #
 def path_to_module():
     p = os.path.dirname(os.path.abspath(__file__))
     return p
 
-####################
 
-
-
-def check_pin_connected(pin_data):
-    """
-    Run some tests to see if data pin appears to be connected to sensor.
-    """
-    first, bits = dht22.read_bits(pin_data)
-
-    if first is None:
-        return False
-    else:
-        return True
-
-    # Done.
-
-
-
-def reset_power(pin_power=None, time_sleep=None):
-    """
-    Power cycle the sensors.
-    time_sleep in seconds.
-    """
-    if time_sleep is None:
-        time_sleep = 30
-
-    if pin_power is None:
-        pass
-    else:
-        # Do it.
-        time.sleep(0.01)
-        dht22._digitalWrite(pin_power, dht22._LOW)
-        time.sleep(time_sleep)
-        dht22._digitalWrite(pin_power, dht22._HIGH)
-        time.sleep(0.01)
-
-    # Done.
-
-
-####################################
-# Data record.
 def c2f(C):
     """
     Convert Celcius to Fahrenheit.
@@ -83,6 +36,27 @@ def f2c(F):
     return C
 
 
+
+##################################################
+
+
+
+# def check_pin_connected(pin_data):
+    # """
+    # Run some tests to see if data pin appears to be connected to sensor.
+    # """
+    # first, bits = dht22.read_bits(pin_data)
+    # if first is None:
+        # return False
+    # else:
+        # return True
+    # # Done.
+
+
+
+##################################################
+# Data record.
+#
 def compute_checksum(byte_1, byte_2, byte_3, byte_4, byte_5):
     """
     Compute checksum.
@@ -180,7 +154,7 @@ def read_dht22_single(pin_data, delay=1):
     return RH, Tc
 
 
-##########################################
+##################################################
 
 _time_wait_default = 10.
 _time_history_default = 10*60
@@ -262,7 +236,7 @@ class Channel(threading.Thread):
                 self.sleep(time_delta)
 
             # Repeat loop.
-            
+
         print('Channel exit: %d.' % self.pin)
         self.status_indicator(-1)
 
@@ -458,20 +432,23 @@ class Channel(threading.Thread):
 ##################################################
 
 def stop_channels(channels):
+    """
+    Callstop method on all channels.
+    Block until all channels exit.
+    """
     for c in channels:
         c.stop()
     for c in channels:
         c.join()
 
-        
+    # Done.
+
+
 def pause_channels(channels):
-    # print('Pause channels')
     for c in channels:
         c.record_data = False
 
-        
 def unpause_channels(channels):
-    # print('Unpause channels')
     for c in channels:
         c.record_data = True
 
@@ -501,7 +478,7 @@ def start_channels(pins_data):
 
 
 
-def check_channels_ok(channels, verbose=False)
+def check_channels_ok(channels, verbose=False):
     """
     Ensure all channels are recording ok.
     """
@@ -538,80 +515,48 @@ def check_channels_ok(channels, verbose=False)
 
 #######################################################
 
-def collect_data(pins_data,
-                 # power_cycle_interval=60*30,
-                 pin_ok=None, pin_err=None, pin_power=None):
+def data_collector(queue, time_interval=30):
     """
     Record data for an experiment from multiple sensors.
-    Save data to files.
-
-    status_interval = seconds between status updates.
-
-    power_cycle_interval: time in seconds after which sensors are power cycled.
+    Keep recording for specified time interval (seconds).
+    Return all accumulated data at end of interval.
     """
 
-    if np.isscalar(pins_data):
-        pins_data = [pins_data]
+    # Main loop.
+    keep_looping = True
+    while keep_looping:
+        try:
+            # Wait a bit for some data to accumulate in the queue.
+            time.sleep(time_interval)
 
+            samples = []
+            while not queue.empty():
+                info = queue.get()
+                samples.append(info)
 
+            if len(samples) > 0:
+                # Pretty status message.
+                t = data_collected[0]['seconds']
+                fmt = '%Y-%m-%d %H-%M-%S'
+                time_stamp = utility.pretty_timestamp(t, fmt)
+                print('write:%3d [%s]' % (len(samples), time_stamp) )
 
+                # Send data to the caller.
+                yield samples
 
-
-
-
-    #
-    # Main data recording loop.
-    #
-    time_status_zero = time.time()
-    time_power_zero = time_status_zero
-
-    time_wait_poll = 30   # seconds
-
-    while True:
-        time_poll_zero = time.time()
-
-        data_collected = []
-        while not queue.empty():
-            info = queue.get()
-            data_collected.append(info)
-
-        if len(data_collected) > 0:
-            # Save collected data to file.
-            t = data_collected[0]['seconds']
-            fmt = '%Y-%m-%d %H-%M-%S'
-
-            time_stamp = utility.pretty_timestamp(t, fmt)
-            f = os.path.join(path_data, 'data-%s.yml' % time_stamp)
-            io.write(f, data_collected)
-
-            print('write:%3d [%s]' % (len(data_collected), time_stamp) )
-
-        # Power cycle the sensors.
-        if time.time() - time_power_zero > power_cycle_interval:
-            print('Power cycle')
-            pause_channels(channels)
-            reset_power(pin_power)
-            unpause_channels(channels)
-
-            time_power_zero = time.time()
-
-        # End of the loop.  Wait a bit before doing it all over again.
-        time_delta = time_wait_poll - (time.time() - time_poll_zero)
-        if time_delta > 0:
-            # print('wait: %.2f' % time_delta)
-            time.sleep(time_delta)
-
-    # except KeyboardInterrupt:
-        # # End it all when user hits ctrl-C.
-        # print()
-        # print('User stop!')
-        # set_status_led(0, pin_ok=pin_ok, pin_err=pin_err)
-        # stop_all_channels(channels)
-        # if pin_power is not None:
-            # dht22._digitalWrite(pin_power, dht22._LOW)
-
-
+        except GeneratorExit:
+            print()
+            print('Data collector: GeneratorExit')
+            keep_looping = False
+            
+        except KeyboardInterrupt:
+            print()
+            print('Data collector: User stop!')
+            keep_looping = False
+        
     # Done.
+
+
 
 
 # _header = ['pin', 'RH_avg', 'RH_std', 'Tf_avg', 'Tf_std', 'Samples', 'Time']
@@ -736,7 +681,6 @@ def collect_data(pins_data,
         # info_sample['Time'] = time_avg
     # # Done.
     # return info_results
-
 # def build_summary(info_results, info_summary=None, pins_data=None):
     # """
     # Summary of collected data.
@@ -766,31 +710,21 @@ def collect_data(pins_data,
         # pin_count_str += s + ' '
     # msg = '%s || %s' % (time_stamp, pin_count_str)
     # print(msg)
-
     # # Done.
-
-
-def example_single():
-    pin_power = 22
-
-    pin_data = 25
-
-    dht22.SetupGpio()
-    dht22._pinMode(pin_power, dht22._OUTPUT)
-    dht22._digitalWrite(pin_power, dht22._HIGH)
-
-    c = Channel(pin_data)
-    c.start()
-
-
-def example_multiple():
-    pin_power = 22
-    pins_data = [4, 17, 18, 21, 23]
-
-    path_data = os.path.join(os.path.abspath(os.path.curdir), 'data')
-
-    collect_data(pins_data, path_data,
-                 pin_ok=None, pin_err=None, pin_power=pin_power)
+# def example_single():
+    # pin_power = 22
+    # pin_data = 25
+    # dht22.SetupGpio()
+    # dht22._pinMode(pin_power, dht22._OUTPUT)
+    # dht22._digitalWrite(pin_power, dht22._HIGH)
+    # c = Channel(pin_data)
+    # c.start()
+# def example_multiple():
+    # pin_power = 22
+    # pins_data = [4, 17, 18, 21, 23]
+    # path_data = os.path.join(os.path.abspath(os.path.curdir), 'data')
+    # collect_data(pins_data, path_data,
+                 # pin_ok=None, pin_err=None, pin_power=pin_power)
 
 
 if __name__ == '__main__':

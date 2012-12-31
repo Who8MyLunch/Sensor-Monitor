@@ -6,8 +6,6 @@ import time
 
 import numpy as np
 
-import data_io as io
-
 import who8mygoogle
 import who8mygoogle.fusion_table as fusion_table
 import who8mygoogle.authorize as authorize
@@ -18,17 +16,14 @@ import utility
 import errors
 
 
-# Static stuff.
-fname_config = 'config_data.yml'
-
-#########################
+#######################################################
 
 
 def path_to_module():
     p = os.path.dirname(os.path.abspath(__file__))
     return p
 
-#########################
+#######################################################
 
 
 def get_api_service():
@@ -49,9 +44,10 @@ def get_api_service():
 
 
 
-def get():
-    f = os.path.join(path_to_module(), fname_config)
-    info_config, meta = io.read(f)
+def get(info_config):
+    """
+    Retrieve current data from master config table.
+    """
 
     service = get_api_service()
 
@@ -83,14 +79,15 @@ def get():
     # Done.
     return info_data
 
+    
 
-def make_master_row(info_config, data_table_id):
+def _make_master_row(info_config, data_table_id):
     # Set time stamp for new data.
     time_stamp = utility.pretty_timestamp(time.time())
 
     # Build new row structure.
     row = {}
-    row['Time'] =time_stamp
+    row['Time'] = time_stamp
     row['Experiment Name'] = info_config['experiment_name']
     row['Data Table ID'] = data_table_id
     row['Pins Data'] = str(info_config['pins_data']).replace('[', '').replace(']', '')
@@ -103,17 +100,13 @@ def make_master_row(info_config, data_table_id):
 
 
 
-def set(data_table_id):
+def set(info_config, data_table_id):
     """
     Upload updated master information.
     # https://developers.google.com/fusiontables/docs/v1/using#updateRow
     """
 
-    # Load config file.
-    f = os.path.join(path_to_module(), fname_config)
-    info_config, meta = io.read(f)
-
-    info_data = make_master_row(info_config, data_table_id)
+    info_data = _make_master_row(info_config, data_table_id)
     
     # Get column names.
     service = get_api_service()
@@ -133,7 +126,7 @@ def set(data_table_id):
     if int(response['numRowsReceived']) != 1:
         raise Who8MyRPiError('Problem uploading new data to master table.')
 
-    return info_data
+    # Done.
 
 
 

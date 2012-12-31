@@ -89,50 +89,76 @@ import errors
     # print(msg)
     # # Done.
 
-
-    
-def load_data_files(files):
-    """
-    Load a number of data files, concatenate into single list of rows.
-
-    column_types = [['Time',        fusion_table.TYPE_DATETIME],
-                    ['Kind',        fusion_table.TYPE_STRING],
-                    ['Pin',         fusion_table.TYPE_NUMBER],
-                    ['Temperature', fusion_table.TYPE_NUMBER],
-                    ['Humidity',    fusion_table.TYPE_NUMBER]]
-
-    -   time_stamp: 1355600730.603534
-        kind: sample
-        pin: 23
-        Tf: 54.32
-        RH: 65.7
-    """
-    fields_to_columns = ['seconds',
-                         'kind',
-                         'pin',
-                         'Tf',
-                         'RH']
-    data_rows = []
-    for f in files:
-        data_samples, meta = io.read(f)
-
-        if data_samples is None:        
-            print('no data in file: %s' % os.path.basename(f))
-        else:
-            for d in data_samples:
-                row = [d[n] for n in fields_to_columns]
-
-                seconds = row[0]
-                time_stamp = utility.pretty_timestamp(seconds)
-                row.insert(0, time_stamp)
-
-                data_rows.append(row)
-
-    column_names = fields_to_columns
-    column_names.insert(0, 'DateTime')
-    
-    # Done.
-    return data_rows, column_names
+# def upload_data(service, tableId, path_data):
+    # """
+    # Main work function.
+    # time_poll: seconds
+    # status_interval: seconds
+    # """
+    # # Setup.
+    # num_batch = 100
+    # time_poll = 5
+    # pattern_data = os.path.join(path_data, 'data-201*.yml')
+    # folder_archive = 'archive'
+    # # Main processing loop.
+    # time_zero = time.time()
+    # info_summary = None
+    # try:
+        # keep_looping = True
+        # while keep_looping:
+            # time_zero = time.time()
+            # # List of candidate files.
+            # files = glob.glob(pattern_data)
+            # files.sort()
+            # # Got some files?
+            # if len(files) > 0:
+                # time.sleep(0.01)  # small sleep to ensure that found files are fully written to disk.
+                # files = files[:num_batch]
+                # num_files = len(files)
+                # data_rows, column_names = load_data_files(files)
+                # num_rows = len(data_rows)
+                # # Upload the new data.
+                # if num_rows > 0:
+                    # response = fusion_table.add_rows(service, tableId, data_rows)
+                    # # Postprocess.
+                    # key = 'numRowsReceived'
+                    # if key in response:
+                        # num_uploaded = int(response[key])
+                        # # Everything worked OK?
+                        # if num_uploaded == num_rows:
+                            # print('uploaded: %d' % num_uploaded)
+                            # # Move processed files to archive.
+                            # for f in files:
+                                # path_archive = os.path.join(os.path.dirname(f), folder_archive)
+                                # if not os.path.isdir(path_archive):
+                                    # os.mkdir(path_archive)
+                                # shutil.move(f, path_archive)
+                        # else:
+                            # raise errors.Who8MyRPiError('Problem uploading data since num_uploaded != num_rows: %s, %s' % (num_uploaded, num_rows))
+                    # else:
+                        # raise errors.Who8MyRPiError('Problem uploading data: %s' % response)
+            # # Wait a bit before searching for and uploading more data.
+            # time_delta = time_poll - (time.time() - time_zero)
+            # if time_delta > 0:
+                # # print('wait: %.2f' % time_delta)
+                # time.sleep(time_delta)
+            # # Repeat.
+    # except who8mygoogle.Who8MyGoogleError as e:
+        # print('Caught error: %s' % e)
+        # return -1
+    # except errors.Who8MyRPiError as e:
+        # print('Caught error: %s' % e)
+        # return -1
+    # except KeyboardInterrupt:
+        # # End it all when user hits ctrl-c.
+        # print()
+        # print('User stop!')
+    # # Done.
+    # if info_summary is None:
+        # val = 0
+    # else:
+        # val = info_summary['num_uploaded']
+    # return val
 
 
 # Static stuff.
@@ -146,7 +172,9 @@ column_types = [['DateTime',    fusion_table.TYPE_DATETIME],
 fname_client = 'client_secrets.json'
 api_name = 'fusiontables'
 
-#####
+##################################################
+
+
 
 def connect_table(table_name, path_credentials):
     """
@@ -164,102 +192,70 @@ def connect_table(table_name, path_credentials):
 
 
 
-def upload_data(service, tableId, path_data):
+def process_samples(samples):
     """
-    Main work function.
-
-    time_poll: seconds
-    status_interval: seconds
+    Convert sensor-generated samples to data rows appropriate to upload to Fusion Table.
     """
+    fields_to_columns = ['seconds',
+                         'kind',
+                         'pin',
+                         'Tf',
+                         'RH']
 
-    # Setup.
-    num_batch = 100
-    time_poll = 5
+    column_names = fields_to_columns
+    column_names.insert(0, 'DateTime')
 
-    pattern_data = os.path.join(path_data, 'data-201*.yml')
-    folder_archive = 'archive'
+    # Loop over all samples.  Convert each to a Fusion Table row.
+    data_rows = []
+    for info in samples:
+        row = [info[n] for n in fields_to_columns]
 
-    # Main processing loop.
-    time_zero = time.time()
-    info_summary = None
+        seconds = row[0]
+        time_stamp = utility.pretty_timestamp(seconds)
+        row.insert(0, time_stamp)
 
-    try:
-        keep_looping = True
-
-        while keep_looping:
-            time_zero = time.time()
-            
-            # List of candidate files.
-            files = glob.glob(pattern_data)
-            files.sort()
-
-            # Got some files?
-            if len(files) > 0:
-
-                time.sleep(0.01)  # small sleep to ensure that found files are fully written to disk.
-
-                files = files[:num_batch]
-                num_files = len(files)
-
-                data_rows, column_names = load_data_files(files)
-                num_rows = len(data_rows)
-
-                # Upload the new data.
-                if num_rows > 0:
-                    response = fusion_table.add_rows(service, tableId, data_rows)
-
-                    # Postprocess.
-                    key = 'numRowsReceived'
-                    if key in response:
-                        num_uploaded = int(response[key])
-
-                        # Everything worked OK?
-                        if num_uploaded == num_rows:
-                            print('uploaded: %d' % num_uploaded)
-                            
-                            # Move processed files to archive.
-                            for f in files:
-                                path_archive = os.path.join(os.path.dirname(f), folder_archive)
-                                if not os.path.isdir(path_archive):
-                                    os.mkdir(path_archive)
-
-                                shutil.move(f, path_archive)
-                        else:
-                            raise errors.Who8MyRPiError('Problem uploading data since num_uploaded != num_rows: %s, %s' % (num_uploaded, num_rows))
-
-                    else:
-                        raise errors.Who8MyRPiError('Problem uploading data: %s' % response)
-
-            # Wait a bit before searching for and uploading more data.
-            time_delta = time_poll - (time.time() - time_zero)   
-
-            if time_delta > 0:
-                # print('wait: %.2f' % time_delta)
-                time.sleep(time_delta)
-
-            # Repeat.
-
-            
-    except who8mygoogle.Who8MyGoogleError as e:
-        print('Caught error: %s' % e)
-        return -1
-
-    except errors.Who8MyRPiError as e:
-        print('Caught error: %s' % e)
-        return -1
-
-    except KeyboardInterrupt:
-        # End it all when user hits ctrl-c.
-        print()
-        print('User stop!')
+        data_rows.append(row)
 
     # Done.
-    if info_summary is None:
-        val = 0
-    else:
-        val = info_summary['num_uploaded']
+    return data_rows, column_names
 
-    return val
+
+
+def data_uploader(service, tableId):
+    """
+    Coroutine to receive new data and upload to Google Fusion table.
+    """
+    keep_looping = True
+    while keep_looping:
+        try:
+            # Receive new data samples.
+            samples = (yield)
+            rows = process_samples(samples)
+
+            # Upload the new data.
+            num_rows = len(rows)
+            if num_rows > 0:
+                response = fusion_table.add_rows(service, tableId, rows)
+
+                # Postprocess.
+                key = 'numRowsReceived'
+                if key in response:
+                    num_uploaded = int(response[key])
+
+                    # Everything worked OK?
+                    if num_uploaded == num_rows:
+                        print('uploaded: %d' % num_uploaded)
+                    else:
+                        raise errors.Who8MyRPiError('Problem uploading data: num_uploaded != num_rows: %s, %s' % (num_uploaded, num_rows))
+                else:
+                    raise errors.Who8MyRPiError('Problem uploading data: %s' % response)
+
+        except GeneratorExit:
+            print()
+            print('Data uploader: GeneratorExit')
+            keep_looping = False
+         
+    # Done.
 
 
 if __name__ == '__main__':
