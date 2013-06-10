@@ -215,9 +215,11 @@ class Channel(threading.Thread):
 
                 if RH is None:
                     # Reading is not valid.
-                    pass
+                    self.status_indicator(0)
                 else:
                     # Reading is good.  Store it.
+                    self.status_indicator(1)
+
                     info = {'kind': 'sample',
                             'pin': self.pin,
                             'RH': float(np.round(RH, decimals=2)),
@@ -232,7 +234,7 @@ class Channel(threading.Thread):
                 pass
 
             # Wait a bit before attempting another measurement.
-            dt = random.uniform(-0.05, 0.05)
+            dt = random.uniform(-0.1, 0.1)
             time_delta = self.time_wait - (time.time() - time_zero) + dt
             if time_delta > 0:
                 self.sleep(time_delta)
@@ -354,9 +356,9 @@ class Channel(threading.Thread):
 
         if delta > self.check_threshold:
             # Fail.
-            print('CHECK FAIL!  Replace with historical median value.')
-
             value_checked = float(value_med)
+            
+            print('CHECK FAIL!  Replace with historical median value: %.2f -> %.2f' % (value, value_checked))
 
         else:
             # Ok.

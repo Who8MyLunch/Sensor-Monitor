@@ -241,7 +241,8 @@ def data_uploader(service, tableId):
                 try:
                     response = fusion_table.add_rows(service, tableId, data_rows)
                 except who8mygoogle.errors.Who8MyGoogleError as e:
-                    raise errors.Who8MyRPiError(e)
+                    print('Error caught: %s' % e.message)
+                    # raise errors.Who8MyRPiError(e)
                     
                 # Postprocess.
                 key = 'numRowsReceived'
@@ -250,9 +251,11 @@ def data_uploader(service, tableId):
 
                     # Everything worked OK?
                     if num_uploaded != num_rows:
-                        raise errors.Who8MyRPiError('Problem uploading data: num_uploaded != num_rows: %s, %s' % (num_uploaded, num_rows))
+                        print('Error: Problem uploading data: num_uploaded != num_rows: %s, %s' % (num_uploaded, num_rows))
+                        # raise errors.Who8MyRPiError('Problem uploading data: num_uploaded != num_rows: %s, %s' % (num_uploaded, num_rows))
                 else:
-                    raise errors.Who8MyRPiError('Problem uploading data: %s' % response)
+                    print('Error: Problem uploading data: %s' % response)
+                    # raise errors.Who8MyRPiError('Problem uploading data: %s' % response)
 
         except GeneratorExit:
             print('Data uploader: GeneratorExit')
