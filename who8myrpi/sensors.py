@@ -156,6 +156,7 @@ def read_dht22_single(pin_data, delay=1):
 
 ##################################################
 
+    
 _time_wait_default = 10.
 _time_history_default = 10*60
 
