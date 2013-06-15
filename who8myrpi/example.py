@@ -6,6 +6,7 @@ import time
 import data_io as io
 import gpio
 import dht22
+import sensors
 
 import numpy as np
 
@@ -61,12 +62,14 @@ def blinking():
             
             
 def read_sensor():
-    pin = 21
-    delta_time = 0
+    pin = 4
+    delay = 1
     
-    values = dht22.read(pin, delta_time)
-    f = 'data.txt'
-    np.savetxt(f, values)
+
+    values = sensors.read_dht22_single(pin, delay=delay)
+
+    #f = 'data.txt'
+    #np.savetxt(f, values)
     
     return values
     # Done.
@@ -76,5 +79,7 @@ def read_sensor():
             
 if __name__ == '__main__':
     values = read_sensor()
+
+    print(values)
     # blinking()
     
