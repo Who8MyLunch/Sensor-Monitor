@@ -6,6 +6,8 @@ import time
 
 import numpy as np
 
+import simplejson as json
+
 import who8mygoogle
 import who8mygoogle.fusion_table as fusion_table
 import who8mygoogle.authorize as authorize
@@ -121,28 +123,34 @@ def set(info_config, data_table_id):
 
     rows_data = [row]
     response = fusion_table.add_rows(service, info_config['master_table_id'], rows_data)
-
-    print('response: %s' % response)
     
     if int(response['numRowsReceived']) != 1:
         raise Who8MyRPiError('Problem uploading new data to master table.')
 
     # Done.
-
+    return response
+    
 
 
 if __name__ == '__main__':
     """
     Run some examples.
     """
-    print('A little example')
 
-    val = get()
+    import data_io
+    fname = 'config_data.yml'
+
+    info_config, meta = data_io.read(fname)
+    
+
+    val = get(info_config)
+    print()
     print(val)
 
-    data_table_id = 'this is an ID?'
-    val_new = set(data_table_id)
 
-    print(val_new)
+    
+    data_table_id = 'asdsfsdfs what?'
+    response = set(info_config, data_table_id)
+
 
 

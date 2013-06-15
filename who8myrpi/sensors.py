@@ -497,7 +497,7 @@ def check_channels_ok(channels, verbose=False):
     
     while not (time_elapsed > time_wait_max or count_ready == len(channels)):
         # Keep looping until all channels pass, or until timeout.
-        time.sleep(.1)
+        time.sleep(.25)
 
         # Count number of channels with collected data.
         count_ready_test = 0
