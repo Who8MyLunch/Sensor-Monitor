@@ -516,8 +516,8 @@ def check_channels_ok(channels, verbose=False):
     # Done.
     return value
 
-
 #######################################################
+
 
 def data_collector(queue, time_interval=30):
     """
@@ -727,5 +727,5 @@ def data_collector(queue, time_interval=30):
 
 if __name__ == '__main__':
     # Examples.
-    example_multiple()
+#    example_multiple()
 

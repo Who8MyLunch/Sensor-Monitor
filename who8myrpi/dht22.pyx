@@ -120,6 +120,7 @@ cdef int send_start(int pin_data) nogil:
 
 #########################
     
+    
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def read_raw(int pin_data, int num_data=4000, int delay=1):
@@ -178,6 +179,7 @@ def read_raw(int pin_data, int num_data=4000, int delay=1):
     return data_signal, info
 
 ###########
+
 
 cdef int read_single_bit(int pin_data, int delay) nogil:
     """
