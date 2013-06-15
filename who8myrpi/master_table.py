@@ -122,6 +122,8 @@ def set(info_config, data_table_id):
     rows_data = [row]
     response = fusion_table.add_rows(service, info_config['master_table_id'], rows_data)
 
+    print('response: %s' % response)
+    
     if int(response['numRowsReceived']) != 1:
         raise Who8MyRPiError('Problem uploading new data to master table.')
 
