@@ -44,17 +44,17 @@ def initialize_sensors(info_config):
     dht22.SetupGpio()
 
     # Power up the sensors.
-    if pin_power is not None:
+    if pin_power:
         dht22._pinMode(pin_power, dht22._OUTPUT)
         dht22._digitalWrite(pin_power, dht22._HIGH)
         time.sleep(5)
 
     # Configure status pins.
-    if pin_ok is not None:
+    if pin_ok:
         dht22._pinMode(pin_ok, dht22._OUTPUT)
         dht22._digitalWrite(pin_ok, dht22._LOW)
 
-    if pin_err is not None:
+    if pin_err:
         dht22._pinMode(pin_err, dht22._OUTPUT)
         dht22._digitalWrite(pin_err, dht22._LOW)
 
@@ -247,8 +247,10 @@ def main():
     #
     try:
         # Initialize stuff.
-        print('Initialize')
+        print('Initialize sensors')
         channels, queue = initialize_sensors(info_config)
+
+        print('Initialize upload')
         service, tableId = initialize_upload(info_config)
 
         # Start recording data.

@@ -211,8 +211,9 @@ class Channel(threading.Thread):
             time_zero = time.time()
 
             if self.record_data:
-                # Record some data.
+                # Record some data.  delay in microseconds.
                 RH, Tc = read_dht22_single(self.pin, delay=1)
+                time_read = time.time()
 
                 if RH is None:
                     # Reading is not valid.
@@ -225,7 +226,7 @@ class Channel(threading.Thread):
                             'pin': self.pin,
                             'RH': float(np.round(RH, decimals=2)),
                             'Tf': float(np.round(c2f(Tc), decimals=2)),
-                            'seconds': float(np.round(time.time(), decimals=2))}
+                            'seconds': float(np.round(time_read, decimals=2))}
 
                     info = self.add_data(info)
                     #print(self.pretty_sample_string(info))
@@ -236,7 +237,7 @@ class Channel(threading.Thread):
 
             # Wait a bit before attempting another measurement.
             dt = random.uniform(-0.1, 0.1)
-            time_delta = self.time_wait - (time.time() - time_zero) + dt
+            time_delta = self.time_wait - (time_read - time_zero) + dt
             if time_delta > 0:
                 self.sleep(time_delta)
 
@@ -352,6 +353,9 @@ class Channel(threading.Thread):
 
 
     def _check_data_value(self, samples, value):
+        """
+        Check if sample is an outlier.  Replace with median.
+        """
         value_med = np.median(samples)
         delta = abs(value - value_med)
 
@@ -488,15 +492,17 @@ def check_channels_ok(channels, verbose=False):
     """
     count_ready = 0
     time_wait_max = 60  # seconds
-    time_elapsed = 0.
+    time_elapsed = 0
     time_zero = time.time()
     
     while not (time_elapsed > time_wait_max or count_ready == len(channels)):
         # Keep looping until all channels pass, or until timeout.
         time.sleep(.1)
+
+        # Count number of channels with collected data.
         count_ready_test = 0
         for c in channels:
-            if c.data_latest is not None:
+            if c.data_latest:
                 count_ready_test += 1
 
         if count_ready_test > count_ready:
