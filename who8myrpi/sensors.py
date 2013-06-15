@@ -564,17 +564,22 @@ def example_single():
     Read multiple data samples from single sensor over short period of time.
     """
 
+    pin = 25
+
     num_samples = 10
     time_wait = 5. # seconds
-    pin = 4
     
 
-    print('pin: %d' % pin)
+    print('\npin: %d\n' % pin)
     
-    for k in range(num_samples)
-        values = read_dht22_single(pin)
-        
-        print(values)
+    for k in range(num_samples):
+        RH, Tc = read_dht22_single(pin)
+
+        if RH:
+            print('RH: %.1f, Tc: %.1f' % (RH, Tc))
+        else:
+            print('Error: %s' % Tc)
+                  
 
         time.sleep(time_wait)    
     
