@@ -197,7 +197,7 @@ class Channel(threading.Thread):
         self.keep_running = False
         self.queue = queue
 
-        print('Channel start: %d' % self.pin)
+        #print('Channel start: %d' % self.pin)
         
         # Done.
 

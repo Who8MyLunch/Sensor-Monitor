@@ -1,15 +1,13 @@
 
-master_table_id: 11WFBBVYZvpec5EY_-KiLxNg0zFV4WfnkNWimpxc
+master_table_id: 1rT2vCtaeiR9gO3k9n-DrKEPbvB54HKEhhGu2jNs
 
-experiment_name: Kitchen table again
-pins_data: [4, 17, 21, 18, 23, 24, 25]
+#experiment_name: Kitchen table again
+#pins_data: [4, 17, 21, 18, 23, 24, 25]
+#pin_ok: 7
+#pin_err: 8
+#pin_power: 22
+#power_cycle_interval: 3600
+#record_interval:  60
 
-pin_ok: 7
-pin_err: 8
-pin_power: 22
-
-power_cycle_interval: 3600
-record_interval:  60
-upload_interval: 120 
 
 

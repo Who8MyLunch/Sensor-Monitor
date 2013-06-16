@@ -71,7 +71,7 @@ ext_dht22 = Extension('dht22', source_files,
 ###############################
 
 # Do it.
-version = '2012.11.07'
+version = '2013.06.15'
 
 dependency_links = ['http://goo.gl/yeQWX']
 install_requires = ['Who8MyGoogle', 'Data_IO', 'Data_Cache', 'pytz']

@@ -32,13 +32,12 @@ def initialize_sensors(info_config):
 
     # Config data.
     pins_data = info_config['pins_data']
-    if np.isscalar(pins_data):
-        pins_data = [pins_data]
-        info_config['pins_data'] = pins_data
-
-    pin_ok = info_config['pin_ok']
-    pin_err = info_config['pin_err']
-    pin_power = info_config['pin_power']
+    #pins_data = pins_data.split(',')
+    #pins_data = [int(pin) for pin in pins_data]
+    
+    pin_ok = int(info_config['pin_ok'])
+    pin_err = int(info_config['pin_error'])
+    pin_power = int(info_config['pin_power'])
 
     # Initialize GPIO.
     dht22.SetupGpio()
@@ -81,9 +80,7 @@ def initialize_upload(info_config):
     service, tableId = upload.connect_table(info_config['experiment_name'], path_credentials)
     print('Initialized, Data Table ID: %s' % tableId)
 
-    # Update master config table with tableId for current data table.
-    master_table.set(info_config, tableId)
-
+    # Done.
     return service, tableId
 
 
@@ -240,12 +237,26 @@ def main():
         args.config_file = 'config_data.yml'
 
     f = os.path.join(path_to_module(), args.config_file)
-    info_config, meta = io.read(f)
+    info_master, meta = io.read(f)
 
     #
     # Do it.
     #
     try:
+        # Retrieve config data from master table.
+        print('Retrieve config data')
+        info_config = master_table.get(info_master)
+
+        pins_data = info_config['pins_data']
+        pins_data = pins_data.split(',')
+        pins_data = [int(pin) for pin in pins_data]
+
+        info_config['pins_data'] = pins_data
+        
+        info_config['pin_ok'] = int(info_config['pin_ok'])
+        info_config['pin_err'] = int(info_config['pin_error'])
+        info_config['pin_power'] = int(info_config['pin_power'])
+        
         # Initialize stuff.
         print('Initialize sensors')
         channels, queue = initialize_sensors(info_config)

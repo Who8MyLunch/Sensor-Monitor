@@ -176,7 +176,6 @@ api_name = 'fusiontables'
 ##################################################
 
 
-
 def connect_table(table_name, path_credentials):
     """
     Establish credentials and retrieve API service object.
@@ -251,8 +250,9 @@ def data_uploader(service, tableId):
 
                     # Everything worked OK?
                     if num_uploaded != num_rows:
-                        print('Error: Problem uploading data: num_uploaded != num_rows: %s, %s' % (num_uploaded, num_rows))
-                        # raise errors.Who8MyRPiError('Problem uploading data: num_uploaded != num_rows: %s, %s' % (num_uploaded, num_rows))
+                        print('Error: Problem uploading data: num_uploaded != num_rows: %s, %s' %
+                              (num_uploaded, num_rows))
+                        
                 else:
                     print('Error: Problem uploading data: %s' % response)
                     # raise errors.Who8MyRPiError('Problem uploading data: %s' % response)
@@ -260,9 +260,7 @@ def data_uploader(service, tableId):
         except GeneratorExit:
             print('Data uploader: GeneratorExit')
             keep_looping = False
-            
-
-         
+                     
     # Done.
 
 
