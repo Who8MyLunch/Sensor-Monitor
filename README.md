@@ -1,9 +1,7 @@
 Who8MyRPi
 =========
 
-This repository contains Python code and Cython extension to interact with the RaspberryPi's GPIO lines.
-
-The software in this repository devloped as I began experimenting with collecting data from small sensors using my new Raspberry Pi computer.  The core functionality for communication with the sensors via "bit banging" is handled by the Cython module dht22.pyx.  The module sensors.py handles the higher level functions for managing a given sensor over the runtime of the application.  Each sensor is controlled by an instance of the Channel class, itself subclassed from threading.Thread.  This class takes care of invalid data samples and historical outliers.  Aggregated results are push to a Queue where the main application framework waits for data updates.
+This repository contains Python code and Cython extension to interact with the RaspberryPi's GPIO lines.  This software repository devloped as I began experimenting with collecting data from small sensors using my new Raspberry Pi computer.  The core functionality for communication with the sensors via "bit banging" is handled by the Cython module dht22.pyx.  The module sensors.py handles the higher level functions for managing a given sensor over the runtime of the application.  Each sensor is controlled by an instance of the Channel class, itself subclassed from threading.Thread.  This class takes care of invalid data samples and historical outliers.  Aggregated results are push to a Queue where the main application framework waits for data updates.
 
 
 Modules
