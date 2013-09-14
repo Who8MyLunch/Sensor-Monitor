@@ -34,7 +34,7 @@ def initialize_sensors(info_config):
     pins_data = info_config['pins_data']
     #pins_data = pins_data.split(',')
     #pins_data = [int(pin) for pin in pins_data]
-    
+
     pin_ok = int(info_config['pin_ok'])
     pin_err = int(info_config['pin_error'])
     pin_power = int(info_config['pin_power'])
@@ -59,9 +59,9 @@ def initialize_sensors(info_config):
 
     # Create data recording channels.
     channels, queue = sensors.start_channels(pins_data, pin_err=pin_err, pin_ok=pin_ok)
-   
+
     ok = sensors.check_channels_ok(channels, verbose=True)
-    
+
     if not ok:
         raise ValueError('Data channels not ready.')
 
@@ -75,7 +75,7 @@ def initialize_upload(info_config):
     Prepare Fusion Table service.
     """
     path_credentials = os.path.join(path_to_module(), 'credentials')
-    
+
     # Setup Google API credentials.
     service, tableId = upload.connect_table(info_config['experiment_name'], path_credentials)
     print('Initialized, Data Table ID: %s' % tableId)
@@ -114,17 +114,17 @@ def record_data(channels, queue, service, tableId, info_config):
                 print('Power cycle')
                 power_cycle(channels, info_config)
                 time_power_zero = time.time()
-                
+
         except who8mygoogle.errors.Who8MyGoogleError as e:
             print()
             print('Error: %s' % e.message)
             break
-            
+
         except KeyboardInterrupt:
             print()
             print('User stop!')
             break
-            
+
     # Finish.
     sink.close()
 
@@ -247,16 +247,17 @@ def main():
         print('Retrieve config data')
         info_config = master_table.get(info_master)
 
+        # Convert some string values to integers.
         pins_data = info_config['pins_data']
         pins_data = pins_data.split(',')
         pins_data = [int(pin) for pin in pins_data]
 
         info_config['pins_data'] = pins_data
-        
+
         info_config['pin_ok'] = int(info_config['pin_ok'])
         info_config['pin_err'] = int(info_config['pin_error'])
         info_config['pin_power'] = int(info_config['pin_power'])
-        
+
         # Initialize stuff.
         print('Initialize sensors')
         channels, queue = initialize_sensors(info_config)
