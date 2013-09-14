@@ -1,7 +1,4 @@
 
-from distribute_setup import use_setuptools
-use_setuptools()
-
 import numpy as np
 import setuptools
 
@@ -47,16 +44,6 @@ ext_gpio = Extension('_gpio', source_files,
                      extra_compile_args=extra_compile_args,
                      extra_link_args=extra_link_args)
 
-# Timing example.
-source_files = ['who8myrpi/measure_timing.pyx']  #+ source_wiringPi
-
-ext_timing = Extension('measure_timing', source_files,
-                       language='c++',
-                       libraries=libraries,
-                       include_dirs=include_dirs,
-                       extra_compile_args=extra_compile_args,
-                       extra_link_args=extra_link_args)
-
 # DHT22 sensor interface.
 source_files = ['who8myrpi/dht22.pyx']  #+ source_wiringPi
 
@@ -67,12 +54,21 @@ ext_dht22 = Extension('dht22', source_files,
                       extra_compile_args=extra_compile_args,
                       extra_link_args=extra_link_args)
 
+# Timing example.
+source_files = ['who8myrpi/measure_timing.pyx']  #+ source_wiringPi
+
+ext_timing = Extension('measure_timing', source_files,
+                       language='c++',
+                       libraries=libraries,
+                       include_dirs=include_dirs,
+                       extra_compile_args=extra_compile_args,
+                       extra_link_args=extra_link_args)
+
 ###############################
 
 # Do it.
 version = '2013.06.15'
 
-dependency_links = ['http://goo.gl/yeQWX']
 install_requires = ['Who8MyGoogle', 'Data_IO', 'Data_Cache', 'pytz']
 
 setup(name='Who8MyRPi',
@@ -82,7 +78,6 @@ setup(name='Who8MyRPi',
       ext_modules=[ext_gpio, ext_dht22, ext_timing],
 
       install_requires=install_requires,
-      dependency_links=dependency_links,
       entry_points=entry_points,
 
       # Metadata
