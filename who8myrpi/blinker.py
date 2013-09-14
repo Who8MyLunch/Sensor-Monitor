@@ -9,24 +9,30 @@ import RPIO
 
 
 
-    
+
 class Blinker(threading.Thread):
-    def __init__(self, pin, freq=1, *args, **kwargs):
+    def __init__(self, pin, freq=1, auto_start=True, *args, **kwargs):
         """
         Make an LED blink.
         pin: GPIO pin number.
         freq: Blinking frequency (Hz)
+
+        Set freqency to zero to temporarily disable LED.
         """
 
         threading.Thread.__init__(self, *args, **kwargs)
 
         self.pin = pin
-        self.time_interval = 1./freq
-        self.time_pause = 0.01
+        self.time_interval = 0
+        self.time_pause = 0.0
+        self.frequency = freq
 
         RPIO.setwarnings(False)
         RPIO.setup(self.pin, RPIO.OUT, initial=False)
-        
+
+        if auto_start:
+            self.start()
+
         # Done.
 
 
@@ -38,12 +44,13 @@ class Blinker(threading.Thread):
         self.keep_running = True
         while self.keep_running:
             time.sleep(self.time_pause)
-            
+
             time_now = time.time()
 
             if time_now - time_base > self.time_interval:
                 time_base = time_now
 
+                # Reverse LED state.
                 value = RPIO.input(self.pin)
                 RPIO.output(self.pin, not value)
 
@@ -64,9 +71,18 @@ class Blinker(threading.Thread):
 
     @property
     def frequency(self):
+        """
+        Blinking frequency, Hz.
+        """
         return 1./self.time_interval
 
     @frequency.setter
     def frequency(self, freq):
-        self.time_interval = 1./freq
-        
+        if freq > 0:
+            self.time_interval = 1./freq
+            self.time_pause = 0.01
+        else:
+            self.time_interval = 0
+            self.time_pause = 0.1
+
+
