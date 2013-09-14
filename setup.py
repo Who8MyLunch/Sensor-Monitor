@@ -17,7 +17,6 @@ entry_points = {'console_scripts': ['who8myrpi = who8myrpi.who8myrpi:main'
 
 # WiriingPi source, includes, and options.
 include_dirs = ['who8myrpi',
-                # 'who8myrpi/wiringPi',
                 '../WiringPi',
                 setuptools.distutils.sysconfig.get_python_inc(),
                 np.get_include()]
