@@ -143,9 +143,10 @@ def finalize(channels, info_config):
         sensors.stop_channels(channels)
 
     # Turn off the sensors.
-    if info_config['pin_power']:
-        print('pin_power off')
-        dht22._digitalWrite(info_config['pin_power'], False)
+    if info_config:
+        if info_config['pin_power']:
+            print('pin_power off')
+            dht22._digitalWrite(info_config['pin_power'], False)
 
     # Done.
 
@@ -209,6 +210,7 @@ def main():
     # Do it.
     #
     channels = None
+    info_config = None
     try:
         # Get config data from master table.
         print('Fetch config data')
