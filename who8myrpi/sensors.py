@@ -140,12 +140,11 @@ def read_dht22_single(pin_data, delay=1):
 #################################################
 
 
-_time_wait_default = 10.
+_time_wait_default = 8.
 _time_history_default = 10*60
 
 class Channel(threading.Thread):
-    def __init__(self, pin, queue=None,
-                 err=None, ok=None,
+    def __init__(self, pin, queue,
                  time_wait=None, time_history=None, *args, **kwargs):
         """
         Record data from specified sensor pin.
@@ -161,12 +160,6 @@ class Channel(threading.Thread):
 
         if not time_history :
             time_history = _time_history_default
-
-        if not queue:
-            queue = Queue.Queue()
-
-        self.err = err
-        self.ok = ok
 
         self.num_min_history = 10  # minimum number of historical samples required to test for outliers.
         self.check_threshold = 25  # error threshold for temperature and humidity.
@@ -194,22 +187,15 @@ class Channel(threading.Thread):
             time_zero = time.time()
 
             if self.record_data:
-                self.ok.frequency = 100 # fast blinks
-
                 # Record some data.  delay in microseconds.
                 RH, Tc = read_dht22_single(self.pin, delay=1)
                 time_read = time.time()
 
-                self.ok.frequency = 0 # no blinks
-
                 if not RH:
                     # Reading is not valid.
-                    self.err.frequency = 0  # fast blinks
-                    # self.status_indicator(0)
+                    pass
                 else:
                     # Reading is good.  Store it.
-                    # self.status_indicator(1)
-
                     info = {'kind': 'sample',
                             'pin': self.pin,
                             'RH': float(np.round(RH, decimals=2)),
@@ -230,12 +216,8 @@ class Channel(threading.Thread):
 
             # Repeat loop.
 
-        print('Channel exit: %d' % self.pin)
-
-        self.ok.frequency = 0
-        self.err.frequency = 0
-
         # Done.
+        print('Channel exit: %d' % self.pin)
 
 
     # def status_indicator(self, flag):
@@ -310,7 +292,6 @@ class Channel(threading.Thread):
             raise e
 
         # Done.
-        return info
 
 
 
@@ -337,6 +318,7 @@ class Channel(threading.Thread):
         return num_remain, num_removed
 
 
+
     def _check_data_value(self, samples, value):
         """
         Check if sample is an outlier.  Replace with median.
@@ -356,6 +338,7 @@ class Channel(threading.Thread):
 
         # Done.
         return value_checked
+
 
 
     def check_values(self, info_new):
@@ -381,6 +364,7 @@ class Channel(threading.Thread):
         return info_checked
 
 
+
     @property
     def freshness(self):
         """
@@ -393,6 +377,7 @@ class Channel(threading.Thread):
             delta_time = time_now - self.data_latest['seconds']
 
             return delta_time
+
 
 
     def pretty_sample_string(self, info):
@@ -430,10 +415,13 @@ def stop_channels(channels):
     Callstop method on all channels.
     Block until all channels exit.
     """
-    for c in channels:
-        c.stop()
-    for c in channels:
-        c.join()
+    if channels:
+        for c in channels:
+            if c:
+                c.stop()
+        for c in channels:
+            if c:
+                c.join()
 
     # Done.
 
@@ -447,7 +435,7 @@ def unpause_channels(channels):
         c.record_data = True
 
 
-def start_channels(pins_data, err=None, ok=None):
+def start_channels(pins_data):
     """
     Turn on all recording channels.
     Verify all are recording valid data.
@@ -458,7 +446,7 @@ def start_channels(pins_data, err=None, ok=None):
     # Build and start the channel recorders.
     channels = []
     for p in pins_data:
-        c = Channel(p, queue=queue, err=err, ok=ok)
+        c = Channel(p, queue=queue)
         c.start()
         channels.append(c)
 
@@ -486,14 +474,16 @@ def check_channels_ok(channels, verbose=False):
 
         # Count number of channels with collected data.
         count_ready_test = 0
+        pins_ready = []
         for c in channels:
             if c.data_latest:
+                pins_ready.append(c.pin)
                 count_ready_test += 1
 
         if count_ready_test > count_ready:
             count_ready = count_ready_test
             if verbose:
-                print('Channels ok: %d of %d' % (count_ready, len(channels)))
+                print('Channels ok: %d of %d  %s' % (count_ready, len(channels), pins_ready))
 
         time_elapsed = time.time() - time_zero
 
@@ -547,7 +537,6 @@ def data_collector(queue, time_interval=30):
             keep_looping = False
 
     # Done.
-
 
 #################################################
 # Examples.

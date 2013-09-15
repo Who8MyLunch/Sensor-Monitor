@@ -22,18 +22,18 @@ class Blinker(threading.Thread):
         self.lock = threading.Lock()
         self.pin = pin
         self.time_interval = 0
-        self.time_pause = 0.0
+        self.time_pause = 0.01
         self.frequency = freq
+        self.timeout = 0
 
         RPIO.setwarnings(False)
         RPIO.setup(self.pin, RPIO.OUT, initial=False)
-
-
 
         if auto_start:
             self.start()
 
         # Done.
+
 
 
     def run(self):
@@ -42,6 +42,7 @@ class Blinker(threading.Thread):
         """
         time_base = time.time()
         self.keep_running = True
+
         while self.keep_running:
             time.sleep(self.time_pause)
 
@@ -76,6 +77,7 @@ class Blinker(threading.Thread):
         self.lock.release()
 
 
+
     @property
     def frequency(self):
         """
@@ -92,6 +94,7 @@ class Blinker(threading.Thread):
         return val
 
 
+
     @frequency.setter
     def frequency(self, freq):
 
@@ -99,11 +102,7 @@ class Blinker(threading.Thread):
 
         if freq > 0:
             self.time_interval = 1./freq
-            self.time_pause = 0.01
         else:
             self.time_interval = 0
-            self.time_pause = 0.01
 
         self.lock.release()
-
-

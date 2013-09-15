@@ -34,8 +34,6 @@ def initialize_sensors(info_config):
     # Config data.
     pins_data = info_config['pins_data']
 
-    pin_ok = int(info_config['pin_ok'])
-    pin_err = int(info_config['pin_error'])
     pin_power = int(info_config['pin_power'])
 
     # Initialize GPIO.
@@ -44,26 +42,16 @@ def initialize_sensors(info_config):
     # Power up the sensors.
     if pin_power:
         dht22._pinMode(pin_power, dht22._OUTPUT)
-        dht22._digitalWrite(pin_power, dht22._HIGH)
-        time.sleep(2)
-
-    # Configure status pins.
-    if pin_ok:
-        blink_ok = blinker.Blinker(pin_ok)
-        # dht22._pinMode(pin_ok, dht22._OUTPUT)
-        # dht22._digitalWrite(pin_ok, dht22._LOW)
-
-    if pin_err:
-        blink_err = blinker.Blinker(pin_err)
-        # dht22._pinMode(pin_err, dht22._OUTPUT)
-        # dht22._digitalWrite(pin_err, dht22._LOW)
+        dht22._digitalWrite(pin_power, True)
+        time.sleep(5)
 
     # Create data recording channels.
-    channels, queue = sensors.start_channels(pins_data, err=blink_err, ok=blink_ok)
+    channels, queue = sensors.start_channels(pins_data)
 
     ok = sensors.check_channels_ok(channels, verbose=True)
 
     if not ok:
+        sensors.stop_channels(channels)
         raise ValueError('Data channels not ready.')
 
     # Done.
@@ -91,11 +79,17 @@ def record_data(channels, queue, service, tableId, info_config):
     Do the work to record data from sensors.
     """
 
-    power_cycle_interval = 10*60  # seconds
+    power_cycle_interval = 5*60  # seconds
+
+    # Status LED.
+    pin_ok = int(info_config['pin_ok'])
+    pin_upload = int(info_config['pin_err'])
+
+    blink_sensors = blinker.Blinker(pin_ok)
 
     # Setup.
-    source = sensors.data_collector(queue)        # data producer / generator
-    sink = upload.data_uploader(service, tableId) # consumer coroutine
+    source = sensors.data_collector(queue)                    # data producer / generator
+    sink = upload.data_uploader(service, tableId, pin_upload) # consumer coroutine
 
     # Main processing loop.
     time_power_zero = time.time()
@@ -110,13 +104,16 @@ def record_data(channels, queue, service, tableId, info_config):
             time_stamp = utility.pretty_timestamp(t, fmt)
             print('samples:%3d [%s]' % (len(samples), time_stamp) )
 
+            blink_sensors.frequency = len(samples)
+
             # Do a power cycle?
             if time.time() - time_power_zero > power_cycle_interval:
                 print('Power cycle')
+                blink_sensors.frequency = 0
                 power_cycle(channels, info_config)
                 time_power_zero = time.time()
 
-        except who8mygoogle.errors.Who8MyGoogleError as e:
+        except who8mygoogle.fusion_tables.errors.Who8MyGoogleError as e:
             print()
             print('Error: %s' % e.message)
             break
@@ -127,6 +124,7 @@ def record_data(channels, queue, service, tableId, info_config):
             break
 
     # Finish.
+    blink_sensors.stop()
     sink.close()
 
     # Done.
@@ -139,25 +137,25 @@ def finalize(channels, info_config):
     """
 
     # Stop recording.
-    sensors.stop_channels(channels)
+    if channels:
+        sensors.stop_channels(channels)
 
     # Turn off the sensors.
-    if info_config['pin_power'] is not None:
-        dht22._digitalWrite(info_config['pin_power'], dht22._LOW)
+    if info_config['pin_power']:
+        print('pin_power off')
+        dht22._digitalWrite(info_config['pin_power'], False)
 
     # Done.
 
 ##################################################
 
 
-def power_cycle(channels, info_config, time_off=None):
+def power_cycle(channels, info_config, time_off=30):
     """
     Power cycle all conected sensors.
     """
-    if time_off is None:
-        time_off = 30
 
-    if info_config['pin_power'] is None:
+    if not info_config['pin_power']:
         # Nothing to do.
         pass
     else:
@@ -165,11 +163,11 @@ def power_cycle(channels, info_config, time_off=None):
         sensors.pause_channels(channels)
 
         time.sleep(0.01)
-        dht22._digitalWrite(info_config['pin_power'], dht22._LOW)
+        dht22._digitalWrite(info_config['pin_power'], False)
 
         time.sleep(time_off)
 
-        dht22._digitalWrite(info_config['pin_power'], dht22._HIGH)
+        dht22._digitalWrite(info_config['pin_power'], True)
         time.sleep(0.01)
 
         sensors.unpause_channels(channels)
@@ -178,41 +176,6 @@ def power_cycle(channels, info_config, time_off=None):
 
 ##################################################
 
-# @coroutine
-# def data_uploader(info_config):
-    # """
-    # Do the work to upload to my Fusion Table.
-    # """
-    # # Config.
-    # experiment_name = info_config['experiment_name']
-    # path_credentials = os.path.join(path_to_module(), 'credentials')
-    # max_allowed_resets = 1000
-    # num_resets = 0
-    # # Setup Google API credentials.
-    # service, tableId = upload.connect_table(experiment_name, path_credentials)
-    # # print('Table ID: %s' % tableId)
-    # # Update master config table with tableId for current data table.
-    # info_master = master_table.set(tableId)
-    # # print(info_master)
-        # # Run the uploader function.  Run until killed or exception.
-        # num_uploaded = upload.upload_data(service, tableId, path_data_work)
-        # if num_uploaded >= 0:
-            # # Clean exit.
-            # keep_looping = False
-        # else:
-            # # Reset and try again.
-            # num_resets += 1
-            # if num_resets > max_allowed_resets:
-                # keep_looping = False
-                # raise Exception('Max number of resets exceeded.')
-            # else:
-                # keep_looping = True
-                # print()
-                # print('Reset API connection!')
-    # # Done.
-
-
-##################################################
 
 def main():
     """
@@ -243,9 +206,10 @@ def main():
     #
     # Do it.
     #
+    channels = None
     try:
-        # Retrieve config data from master table.
-        print('Retrieve config data')
+        # Get config data from master table.
+        print('Fetch config data')
         info_config = master_table.get(info_master)
 
         # Convert some string values to integers.
@@ -274,6 +238,10 @@ def main():
         # Stop it all when user hits ctrl-C.
         print()
         print('Main: User stop!')
+
+    except Exception as e:
+        channels = None
+        print(e)
 
     # Finish.
     print('Stop recording')
