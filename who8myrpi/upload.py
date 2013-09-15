@@ -8,24 +8,21 @@ import datetime
 import time
 
 import numpy as np
-
 import data_io as io
 
-import who8mygoogle
+import who8mygoogle.fusion_tables as fusion_tables
 import utility
-import errors
 import blinker
 
 from coroutine import coroutine
 
-
 # Static stuff.
-column_types = [['DateTime',    who8mygoogle.fusion_tables.fusion_table.TYPE_DATETIME],
-                ['Seconds',     who8mygoogle.fusion_tables.fusion_table.TYPE_NUMBER],
-                ['Kind',        who8mygoogle.fusion_tables.fusion_table.TYPE_STRING],
-                ['Pin',         who8mygoogle.fusion_tables.fusion_table.TYPE_NUMBER],
-                ['Temperature', who8mygoogle.fusion_tables.fusion_table.TYPE_NUMBER],
-                ['Humidity',    who8mygoogle.fusion_tables.fusion_table.TYPE_NUMBER]]
+column_types = [['DateTime',    fusion_tables.fusion_table.TYPE_DATETIME],
+                ['Seconds',     fusion_tables.fusion_table.TYPE_NUMBER],
+                ['Kind',        fusion_tables.fusion_table.TYPE_STRING],
+                ['Pin',         fusion_tables.fusion_table.TYPE_NUMBER],
+                ['Temperature', fusion_tables.fusion_table.TYPE_NUMBER],
+                ['Humidity',    fusion_tables.fusion_table.TYPE_NUMBER]]
 
 fname_client = 'client_secrets.json'
 api_name = 'fusiontables'
@@ -39,10 +36,10 @@ def connect_table(table_name, path_credentials):
     """
 
     f = os.path.join(path_credentials, fname_client)
-    credentials = who8mygoogle.fusion_tables.authorize.build_credentials(f, api_name)
-    service = who8mygoogle.fusion_tables.authorize.build_service(api_name, credentials)
+    credentials = fusion_tables.authorize.build_credentials(f, api_name)
+    service = fusion_tables.authorize.build_service(api_name, credentials)
 
-    tableId = who8mygoogle.fusion_tables.fusion_table.fetch_table(service, table_name, column_types)
+    tableId = fusion_tables.fusion_table.fetch_table(service, table_name, column_types)
 
     # Done.
     return service, tableId
@@ -99,12 +96,11 @@ def data_uploader(service, tableId, pin_status):
             if num_rows > 0:
                 try:
                     blink_status.frequency = 30
-                    response = who8mygoogle.fusion_tables.fusion_table.add_rows(service, tableId, data_rows)
+                    response = fusion_tables.fusion_table.add_rows(service, tableId, data_rows)
                     blink_status.frequency = 0
-                except who8mygoogle.fusion_tables.errors.Who8MyGoogleError as e:
+                except fusion_tables.errors.Who8MyGoogleError as e:
                     blink_status.frequency = 0
                     print('Error caught: %s' % e.message)
-                    # raise errors.Who8MyRPiError(e)
 
                 # Postprocess.
                 key = 'numRowsReceived'
@@ -120,7 +116,6 @@ def data_uploader(service, tableId, pin_status):
                 else:
                     print('Error: Problem uploading data: %s' % response)
                     blink_status.frequency = 2
-                    # raise errors.Who8MyRPiError('Problem uploading data: %s' % response)
 
         except GeneratorExit:
             print('Data uploader: GeneratorExit')

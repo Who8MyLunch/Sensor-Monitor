@@ -8,14 +8,14 @@ import time
 import numpy as np
 import data_io as io
 
-import utility
-import master_table
-import upload
-import sensors
 import dht22
+import sensors
+import utility
 import blinker
+import upload
+import master_table
 
-import who8mygoogle
+import who8mygoogle.fusion_tables as fusion_tables
 
 #################################################
 
@@ -113,7 +113,7 @@ def record_data(channels, queue, service, tableId, info_config):
                 power_cycle(channels, info_config)
                 time_power_zero = time.time()
 
-        except who8mygoogle.fusion_tables.errors.Who8MyGoogleError as e:
+        except fusion_tables.errors.Who8MyGoogleError as e:
             print()
             print('Error: %s' % e.message)
             break

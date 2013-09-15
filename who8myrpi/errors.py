@@ -6,11 +6,15 @@ should be defined in this file.
 """
 
 class Error(Exception):
-  """Base error for this module."""
+  """
+  Base error for this module.
+  """
   pass
 
 class Who8MyRPiError(Error):
-  """General error for this package."""
+  """
+  General error for this package.
+  """
   pass
 
 

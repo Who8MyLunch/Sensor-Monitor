@@ -8,7 +8,7 @@ import numpy as np
 
 import simplejson as json
 
-import who8mygoogle
+import who8mygoogle.fusion_tables as fusion_tables
 
 import apiclient.errors
 import apiclient.http
@@ -37,8 +37,8 @@ def get_api_service():
     path_credentials = os.path.join(path_to_module(), 'credentials')
 
     f = os.path.join(path_credentials, fname_client)
-    credentials = who8mygoogle.fusion_tables.authorize.build_credentials(f, api_name)
-    service = who8mygoogle.fusion_tables.authorize.build_service(api_name, credentials)
+    credentials = fusion_tables.authorize.build_credentials(f, api_name)
+    service = fusion_tables.authorize.build_service(api_name, credentials)
 
     # Done.
     return service

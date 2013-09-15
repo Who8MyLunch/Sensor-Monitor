@@ -8,6 +8,7 @@ import datetime
 import pytz
 import string
 
+
 def valid_filename(fname_in):
     """
     Take a string and return a valid filename constructed from the string.
@@ -27,19 +28,19 @@ def valid_filename(fname_in):
     # Done.
     return fname_out
 
-    
-    
+
+
 def run_cmd(cmd):
     cmd = shlex.split(cmd)
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = proc.communicate()
     proc.wait()
-    
+
     # Done.
     return stdout, stderr
 
-    
-    
+
+
 def network_reset():
     cmd = 'ifdown eth0'
     stdout, stderr = run_cmd(cmd)
@@ -47,7 +48,7 @@ def network_reset():
         print('uh oh!')
 
     time.sleep(5)
-    
+
     cmd = 'ifup eth0'
     stdout, stderr = run_cmd(cmd)
     if stderr != '':
@@ -63,7 +64,7 @@ def pretty_timestamp(seconds, fmt=None):
     """
     if fmt == None:
         fmt = '%Y-%m-%d %H:%M:%S'
-        
+
     if type(seconds) == str or type(seconds) == unicode:
         seconds = float(seconds)
 
@@ -78,4 +79,4 @@ def pretty_timestamp(seconds, fmt=None):
     # Done.
     return time_stamp
 
-    
+
