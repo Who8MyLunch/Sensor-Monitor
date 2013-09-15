@@ -39,8 +39,11 @@ def get(info_config, flags=None):
     if not os.path.isdir(path_credentials):
         os.makedirs(path_credentials)
 
+    # Fetch main service object.
     f = os.path.join(path_credentials, fname_client_secrets)
     service = fusion_tables.authorize.get_api_service(f, api_name, flags)
+
+    # Get a query object.
     query_service = service.query()
 
     # Get the most recent row of config data.

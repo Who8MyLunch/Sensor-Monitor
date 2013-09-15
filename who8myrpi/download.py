@@ -17,21 +17,6 @@ api_name = 'fusiontables'
 #################################################
 
 
-def connect_table(table_name, path_credentials):
-    """
-    Establish credentials and retrieve API service object.
-    """
-    f = os.path.join(path_credentials, fname_client)
-    credentials = fusion_tables.authorize.build_credentials(f, api_name)
-    service = fusion_tables.authorize.build_service(api_name, credentials)
-
-    tableId = fusion_tables.fusion_table.fetch_table(service, table_name, verbose=True)
-
-    # Done.
-    return service, tableId
-
-
-
 def download_data(service, tableId):
     """
     Download some data from a Google Fusion Table.
@@ -108,6 +93,51 @@ if __name__ == '__main__':
 
     service = master_table.get_api_service(flags)
     fusion_tables.fusion_table.display_existing_tables(service)
+
+    api_name = 'fusiontables'
+    fname_client_secrets = 'client_secrets.json'
+
+    path_credentials = os.path.join(path_to_module(), 'credentials')
+    if not os.path.isdir(path_credentials):
+        os.makedirs(path_credentials)
+
+    # Fetch main service object.
+    f = os.path.join(path_credentials, fname_client_secrets)
+    service = fusion_tables.authorize.get_api_service(f, api_name, flags)
+
+    # Get a query object.
+    query_service = service.query()
+
+    # Get the most recent row of config data.
+    #num_rows_req = 1
+    #my_query = 'SELECT * FROM ' + info_config['master_table_id'] + ' ORDER BY Time DESC LIMIT ' + \
+    #           str(num_rows_req)
+
+    my_query = 'SELECT * FROM ' + info_config['master_table_id'] + ' LIMIT 1'
+    request = query_service.sql(sql=my_query)
+
+    try:
+        sql_results = request.execute()
+    except apiclient.errors.HttpError as e:
+        content = json.loads(e.content)
+        domain = content['error']['errors'][0]['domain']
+        message = content['error']['errors'][0]['message']
+
+        raise errors.Who8MyRPiError(domain + ': ' + message)
+
+    # Extract most recent row.
+    names = sql_results['columns']
+    row = sql_results['rows'][0]
+
+    info_data = {}
+    for k, v in zip(names, row):
+        k = k.lower()
+        k = '_'.join(k.split())
+        info_data[k] = v
+
+    # Done.
+    return info_data
+
 
 
     # print()
