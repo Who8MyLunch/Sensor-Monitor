@@ -226,7 +226,7 @@ def main():
     info_config = None
     try:
         # Get config data from master table.
-        print('Fetch config data')
+        print('Fetch master table config data')
         info_config = master_table.get(info_master)
 
         # Convert some string values to integers.
@@ -244,7 +244,7 @@ def main():
         print('Initialize sensors')
         channels, queue = initialize_sensors(info_config)
 
-        print('Initialize upload')
+        print('Initialize upload data API')
         service, tableId = initialize_upload(info_config)
 
         # Start recording data.
