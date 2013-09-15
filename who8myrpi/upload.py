@@ -119,6 +119,9 @@ def data_uploader(service, tableId, pin_status):
         except GeneratorExit:
             print('Data uploader: GeneratorExit')
             keep_looping = False
+        except Exception as e:
+            blink_status.stop()
+            raise e
 
     # Stop the blinker.
     blink_status.frequency = 0
