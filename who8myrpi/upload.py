@@ -101,7 +101,7 @@ def data_uploader(service, tableId, pin_status):
                     blink_status.frequency = 30
                     response = who8mygoogle.fusion_tables.fusion_table.add_rows(service, tableId, data_rows)
                     blink_status.frequency = 0
-                except who8mygoogle.errors.Who8MyGoogleError as e:
+                except who8mygoogle.fusion_tables.errors.Who8MyGoogleError as e:
                     blink_status.frequency = 0
                     print('Error caught: %s' % e.message)
                     # raise errors.Who8MyRPiError(e)
