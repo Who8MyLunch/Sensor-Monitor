@@ -12,15 +12,10 @@ import numpy as np
 import data_io as io
 
 import who8mygoogle
-import who8mygoogle.fusion_table as fusion_table
-import who8mygoogle.authorize as authorize
-
 import utility
 import errors
 
 from coroutine import coroutine
-
-##########################################
 
 # def process_data_OLD(data_sens, header_sens):
     # """
@@ -89,7 +84,6 @@ from coroutine import coroutine
     # msg = '%s || %s' % (time_stamp, num_uploaded_str)
     # print(msg)
     # # Done.
-
 # def upload_data(service, tableId, path_data):
     # """
     # Main work function.
@@ -163,17 +157,17 @@ from coroutine import coroutine
 
 
 # Static stuff.
-column_types = [['DateTime',    fusion_table.TYPE_DATETIME],
-                ['Seconds',     fusion_table.TYPE_NUMBER],
-                ['Kind',        fusion_table.TYPE_STRING],
-                ['Pin',         fusion_table.TYPE_NUMBER],
-                ['Temperature', fusion_table.TYPE_NUMBER],
-                ['Humidity',    fusion_table.TYPE_NUMBER]]
+column_types = [['DateTime',    who8mygoogle.fusion_tables.fusion_table.TYPE_DATETIME],
+                ['Seconds',     who8mygoogle.fusion_tables.fusion_table.TYPE_NUMBER],
+                ['Kind',        who8mygoogle.fusion_tables.fusion_table.TYPE_STRING],
+                ['Pin',         who8mygoogle.fusion_tables.fusion_table.TYPE_NUMBER],
+                ['Temperature', who8mygoogle.fusion_tables.fusion_table.TYPE_NUMBER],
+                ['Humidity',    who8mygoogle.fusion_tables.fusion_table.TYPE_NUMBER]]
 
 fname_client = 'client_secrets.json'
 api_name = 'fusiontables'
 
-##################################################
+#################################################
 
 
 def connect_table(table_name, path_credentials):
@@ -182,10 +176,10 @@ def connect_table(table_name, path_credentials):
     """
 
     f = os.path.join(path_credentials, fname_client)
-    credentials = authorize.build_credentials(f, api_name)
-    service = authorize.build_service(api_name, credentials)
+    credentials = who8mygoogle.fusion_tables.authorize.build_credentials(f, api_name)
+    service = who8mygoogle.fusion_tables.authorize.build_service(api_name, credentials)
 
-    tableId = fusion_table.fetch_table(service, table_name, column_types)
+    tableId = who8mygoogle.fusion_tables.fusion_table.fetch_table(service, table_name, column_types)
 
     # Done.
     return service, tableId
@@ -238,11 +232,11 @@ def data_uploader(service, tableId):
             num_rows = len(data_rows)
             if num_rows > 0:
                 try:
-                    response = fusion_table.add_rows(service, tableId, data_rows)
+                    response = who8mygoogle.fusion_tables.fusion_table.add_rows(service, tableId, data_rows)
                 except who8mygoogle.errors.Who8MyGoogleError as e:
                     print('Error caught: %s' % e.message)
                     # raise errors.Who8MyRPiError(e)
-                    
+
                 # Postprocess.
                 key = 'numRowsReceived'
                 if key in response:
@@ -252,7 +246,7 @@ def data_uploader(service, tableId):
                     if num_uploaded != num_rows:
                         print('Error: Problem uploading data: num_uploaded != num_rows: %s, %s' %
                               (num_uploaded, num_rows))
-                        
+
                 else:
                     print('Error: Problem uploading data: %s' % response)
                     # raise errors.Who8MyRPiError('Problem uploading data: %s' % response)
@@ -260,12 +254,9 @@ def data_uploader(service, tableId):
         except GeneratorExit:
             print('Data uploader: GeneratorExit')
             keep_looping = False
-                     
+
     # Done.
 
 
 if __name__ == '__main__':
     pass
-
-
-

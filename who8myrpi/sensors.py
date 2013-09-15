@@ -12,7 +12,7 @@ import numpy as np
 import dht22
 import utility
 
-##################################################
+#################################################
 # Helper functions.
 #
 def path_to_module():
@@ -37,24 +37,7 @@ def f2c(F):
 
 
 
-##################################################
-
-
-
-# def check_pin_connected(pin_data):
-    # """
-    # Run some tests to see if data pin appears to be connected to sensor.
-    # """
-    # first, bits = dht22.read_bits(pin_data)
-    # if first is None:
-        # return False
-    # else:
-        # return True
-    # # Done.
-
-
-
-##################################################
+#################################################
 # Data record.
 #
 def compute_checksum(byte_1, byte_2, byte_3, byte_4, byte_5):
@@ -154,15 +137,15 @@ def read_dht22_single(pin_data, delay=1):
     return RH, Tc
 
 
-##################################################
+#################################################
 
-    
+
 _time_wait_default = 10.
 _time_history_default = 10*60
 
 class Channel(threading.Thread):
     def __init__(self, pin, queue=None,
-                 pin_err=None, pin_ok=None,
+                 err=None, ok=None,
                  time_wait=None, time_history=None, *args, **kwargs):
         """
         Record data from specified sensor pin.
@@ -173,20 +156,20 @@ class Channel(threading.Thread):
 
         threading.Thread.__init__(self, *args, **kwargs)
 
-        if time_wait is None:
+        if not time_wait:
             time_wait = _time_wait_default
 
-        if time_history is None:
+        if not time_history :
             time_history = _time_history_default
 
-        if queue is None:
+        if not queue:
             queue = Queue.Queue()
 
-        self.pin_err = pin_err
-        self.pin_ok = pin_ok
+        self.err = err
+        self.ok = ok
 
-        self.num_min_history = 10
-        self.check_threshold = 25
+        self.num_min_history = 10  # minimum number of historical samples required to test for outliers.
+        self.check_threshold = 25  # error threshold for temperature and humidity.
         self.pin = pin
         self.time_wait = time_wait
         self.time_history = time_history
@@ -197,8 +180,8 @@ class Channel(threading.Thread):
         self.keep_running = False
         self.queue = queue
 
-        #print('Channel start: %d' % self.pin)
-        
+        # print('Channel start: %d' % self.pin)
+
         # Done.
 
 
@@ -211,16 +194,21 @@ class Channel(threading.Thread):
             time_zero = time.time()
 
             if self.record_data:
+                self.ok.frequency = 100 # fast blinks
+
                 # Record some data.  delay in microseconds.
                 RH, Tc = read_dht22_single(self.pin, delay=1)
                 time_read = time.time()
 
-                if RH is None:
+                self.ok.frequency = 0 # no blinks
+
+                if not RH:
                     # Reading is not valid.
-                    self.status_indicator(0)
+                    self.err.frequency = 0  # fast blinks
+                    # self.status_indicator(0)
                 else:
                     # Reading is good.  Store it.
-                    self.status_indicator(1)
+                    # self.status_indicator(1)
 
                     info = {'kind': 'sample',
                             'pin': self.pin,
@@ -228,8 +216,7 @@ class Channel(threading.Thread):
                             'Tf': float(np.round(c2f(Tc), decimals=2)),
                             'seconds': float(np.round(time_read, decimals=2))}
 
-                    info = self.add_data(info)
-                    #print(self.pretty_sample_string(info))
+                    self.add_data(info)
             else:
                 # Recording is paused.
                 # print('recording paused: %d' % self.pin)
@@ -244,40 +231,38 @@ class Channel(threading.Thread):
             # Repeat loop.
 
         print('Channel exit: %d' % self.pin)
-        self.status_indicator(-1)
+
+        self.ok.frequency = 0
+        self.err.frequency = 0
 
         # Done.
 
 
-    def status_indicator(self, ok):
-        """
-        Configure and set status LEDs.
-
-        ok  > 0: 'ok'
-        ok == 0: 'error'
-        ok  < 0: 'off'
-        """
-        if not (self.pin_ok == None or self.pin_err == None):
-            # Status pins are defined.
-            # These pins assumed already be configured for output.
-            if ok > 0:
-                # Everything is OK.
-                dht22._digitalWrite(self.pin_ok, dht22._HIGH)
-                dht22._digitalWrite(self.pin_err, dht22._LOW)
-            elif ok == 0:
-                # Not ok.  Problem.
-                dht22._digitalWrite(self.pin_err, dht22._HIGH)
-                dht22._digitalWrite(self.pin_ok, dht22._LOW)
-            else:
-                # Off.
-                dht22._digitalWrite(self.pin_err, dht22._LOW)
-                dht22._digitalWrite(self.pin_ok, dht22._LOW)
-
-        else:
-            # No status pins configured.  Do nothing.
-            pass
-
-    # Done.
+    # def status_indicator(self, flag):
+    #     """
+    #     Configure and set status LEDs.
+    #     flag  > 0: 'ok'
+    #     flag == 0: 'error'
+    #     flag  < 0: 'off'
+    #     """
+    #     if self.ok and self.err:
+    #         # Status blinkers are defined.
+    #         if flag > 0:
+    #             # Everything is OK.
+    #             # dht22._digitalWrite(self.pin_ok, dht22._HIGH)
+    #             dht22._digitalWrite(self.pin_err, dht22._LOW)
+    #         elif flag == 0:
+    #             # Not ok.  Problem.
+    #             dht22._digitalWrite(self.pin_err, dht22._HIGH)
+    #             # dht22._digitalWrite(self.pin_ok, dht22._LOW)
+    #         else:
+    #             # Off.
+    #             dht22._digitalWrite(self.pin_err, dht22._LOW)
+    #             # dht22._digitalWrite(self.pin_ok, dht22._LOW)
+    #     else:
+    #         # No status pins configured.  Do nothing.
+    #         pass
+    # # Done.
 
 
 
@@ -319,14 +304,14 @@ class Channel(threading.Thread):
         self.data_latest = info
 
         try:
-            block = False
-            self.queue.put(info, block)
+            self.queue.put(info, block=False)
         except Queue.Full as e:
             print('TODO: implement better way to handle this exception: %s' % e)
             raise e
 
         # Done.
         return info
+
 
 
     def adjust_history(self):
@@ -362,7 +347,7 @@ class Channel(threading.Thread):
         if delta > self.check_threshold:
             # Fail.
             value_checked = float(value_med)
-            
+
             print('CHECK FAIL!  Replace with historical median value: %.2f -> %.2f' % (value, value_checked))
 
         else:
@@ -438,7 +423,7 @@ class Channel(threading.Thread):
 
 
 
-##################################################
+#################################################
 
 def stop_channels(channels):
     """
@@ -462,7 +447,7 @@ def unpause_channels(channels):
         c.record_data = True
 
 
-def start_channels(pins_data, pin_err=None, pin_ok=None):
+def start_channels(pins_data, err=None, ok=None):
     """
     Turn on all recording channels.
     Verify all are recording valid data.
@@ -473,7 +458,7 @@ def start_channels(pins_data, pin_err=None, pin_ok=None):
     # Build and start the channel recorders.
     channels = []
     for p in pins_data:
-        c = Channel(p, queue=queue, pin_err=pin_err, pin_ok=pin_ok)
+        c = Channel(p, queue=queue, err=err, ok=ok)
         c.start()
         channels.append(c)
 
@@ -494,7 +479,7 @@ def check_channels_ok(channels, verbose=False):
     time_wait_max = 60  # seconds
     time_elapsed = 0
     time_zero = time.time()
-    
+
     while not (time_elapsed > time_wait_max or count_ready == len(channels)):
         # Keep looping until all channels pass, or until timeout.
         time.sleep(.25)
@@ -511,7 +496,7 @@ def check_channels_ok(channels, verbose=False):
                 print('Channels ok: %d of %d' % (count_ready, len(channels)))
 
         time_elapsed = time.time() - time_zero
-        
+
     # Finish.
     value = True
     if count_ready < len(channels):
@@ -528,6 +513,8 @@ def check_channels_ok(channels, verbose=False):
 
 def data_collector(queue, time_interval=30):
     """
+    This is a generator.
+
     Record data for an experiment from multiple sensors.
     Keep recording for specified time interval (seconds).
     Return all accumulated data at end of interval.
@@ -546,23 +533,23 @@ def data_collector(queue, time_interval=30):
                 samples.append(info)
 
             if len(samples) > 0:
-                # Send data to the caller.
+                # Yield data to the caller.
                 yield samples
 
         except GeneratorExit:
             print()
             print('Data collector: GeneratorExit')
             keep_looping = False
-            
+
         except KeyboardInterrupt:
             print()
             print('Data collector: User stop!')
             keep_looping = False
-        
+
     # Done.
 
 
-#######################################################
+#################################################
 # Examples.
 
 def example_single():
@@ -574,10 +561,10 @@ def example_single():
 
     num_samples = 10
     time_wait = 5. # seconds
-    
+
 
     print('\npin: %d\n' % pin)
-    
+
     for k in range(num_samples):
         RH, Tc = read_dht22_single(pin)
 
@@ -585,13 +572,13 @@ def example_single():
             print('RH: %.1f, Tc: %.1f' % (RH, Tc))
         else:
             print('Error: %s' % Tc)
-                  
 
-        time.sleep(time_wait)    
-    
+
+        time.sleep(time_wait)
+
     # Done.
-    
-        
+
+
 
 if __name__ == '__main__':
     # Examples.

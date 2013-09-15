@@ -13,16 +13,17 @@ import master_table
 import upload
 import sensors
 import dht22
+import blinker
 
 import who8mygoogle
 
-###############################
+#################################################
 
 def path_to_module():
     p = os.path.dirname(os.path.abspath(__file__))
     return p
 
-###############################
+#################################################
 
 
 def initialize_sensors(info_config):
@@ -32,8 +33,6 @@ def initialize_sensors(info_config):
 
     # Config data.
     pins_data = info_config['pins_data']
-    #pins_data = pins_data.split(',')
-    #pins_data = [int(pin) for pin in pins_data]
 
     pin_ok = int(info_config['pin_ok'])
     pin_err = int(info_config['pin_error'])
@@ -46,19 +45,21 @@ def initialize_sensors(info_config):
     if pin_power:
         dht22._pinMode(pin_power, dht22._OUTPUT)
         dht22._digitalWrite(pin_power, dht22._HIGH)
-        time.sleep(5)
+        time.sleep(2)
 
     # Configure status pins.
     if pin_ok:
-        dht22._pinMode(pin_ok, dht22._OUTPUT)
-        dht22._digitalWrite(pin_ok, dht22._LOW)
+        blink_ok = blinker.Blinker(pin_ok)
+        # dht22._pinMode(pin_ok, dht22._OUTPUT)
+        # dht22._digitalWrite(pin_ok, dht22._LOW)
 
     if pin_err:
-        dht22._pinMode(pin_err, dht22._OUTPUT)
-        dht22._digitalWrite(pin_err, dht22._LOW)
+        blink_err = blinker.Blinker(pin_err)
+        # dht22._pinMode(pin_err, dht22._OUTPUT)
+        # dht22._digitalWrite(pin_err, dht22._LOW)
 
     # Create data recording channels.
-    channels, queue = sensors.start_channels(pins_data, pin_err=pin_err, pin_ok=pin_ok)
+    channels, queue = sensors.start_channels(pins_data, err=blink_err, ok=blink_ok)
 
     ok = sensors.check_channels_ok(channels, verbose=True)
 

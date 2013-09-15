@@ -7,9 +7,6 @@ import threading
 
 import RPIO
 
-
-
-
 class Blinker(threading.Thread):
     def __init__(self, pin, freq=1, auto_start=True, *args, **kwargs):
         """
@@ -22,6 +19,7 @@ class Blinker(threading.Thread):
 
         threading.Thread.__init__(self, *args, **kwargs)
 
+        self.lock = threading.Lock()
         self.pin = pin
         self.time_interval = 0
         self.time_pause = 0.0
@@ -29,6 +27,8 @@ class Blinker(threading.Thread):
 
         RPIO.setwarnings(False)
         RPIO.setup(self.pin, RPIO.OUT, initial=False)
+
+
 
         if auto_start:
             self.start()
@@ -47,7 +47,11 @@ class Blinker(threading.Thread):
 
             time_now = time.time()
 
-            if time_now - time_base > self.time_interval:
+            if self.time_interval <= 0:
+                # Off.
+                RPIO.output(self.pin, False)
+
+            elif time_now - time_base > self.time_interval:
                 time_base = time_now
 
                 # Reverse LED state.
@@ -57,6 +61,7 @@ class Blinker(threading.Thread):
             # Repeat loop.
 
         print('Blinker exit: %d' % self.pin)
+        RPIO.output(self.pin, False)
 
         # Done.
 
@@ -66,7 +71,9 @@ class Blinker(threading.Thread):
         """
         Tell thread to stop running.
         """
+        self.lock.acquire()
         self.keep_running = False
+        self.lock.release()
 
 
     @property
@@ -74,15 +81,29 @@ class Blinker(threading.Thread):
         """
         Blinking frequency, Hz.
         """
-        return 1./self.time_interval
+        self.lock.acquire()
+        try:
+            val = 1./self.time_interval
+        except ZeroDivisionError:
+            val = 0
+
+        self.lock.release()
+
+        return val
+
 
     @frequency.setter
     def frequency(self, freq):
+
+        self.lock.acquire()
+
         if freq > 0:
             self.time_interval = 1./freq
             self.time_pause = 0.01
         else:
             self.time_interval = 0
-            self.time_pause = 0.1
+            self.time_pause = 0.01
+
+        self.lock.release()
 
 
