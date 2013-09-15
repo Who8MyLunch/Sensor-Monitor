@@ -35,6 +35,8 @@ def get_api_service():
     api_name = 'fusiontables'
 
     path_credentials = os.path.join(path_to_module(), 'credentials')
+    if not os.path.isdir(path_credentials):
+        os.makedirs(path_credentials)
 
     f = os.path.join(path_credentials, fname_client)
     credentials = fusion_tables.authorize.build_credentials(f, api_name)

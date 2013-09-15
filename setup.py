@@ -69,7 +69,7 @@ ext_timing = Extension('measure_timing', source_files,
 # Do it.
 version = '2013.06.15'
 
-install_requires = ['Who8MyGoogle', 'Data_IO', 'Data_Cache', 'pytz']
+install_requires = ['Who8MyGoogle', 'Data_IO', 'Data_Cache', 'pytz', 'simplejson']
 
 setup(name='Who8MyRPi',
       packages=find_packages(),
