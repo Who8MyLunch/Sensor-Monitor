@@ -111,9 +111,12 @@ def record_data(channels, queue, service, tableId, info_config):
             # Do a power cycle?
             if time.time() - time_power_zero > power_cycle_interval:
                 print('Power cycle')
-                blink_sensors.frequency = 0
+                blink_sensors.frequency = 0.2
+
                 power_cycle(channels, info_config)
                 time_power_zero = time.time()
+
+                blink_sensors.frequency = 0
 
         except fusion_tables.errors.Who8MyGoogleError as e:
             print()
@@ -124,6 +127,14 @@ def record_data(channels, queue, service, tableId, info_config):
             print()
             print('User stop!')
             break
+
+        except Exception as e:
+            # More gentle end for unknown exception.
+            print(e)
+            blink_sensors.stop()
+            sink.close()
+
+            raise e
 
     # Finish.
     blink_sensors.stop()
@@ -156,6 +167,8 @@ def finalize(channels, info_config):
 def power_cycle(channels, info_config, time_off=30):
     """
     Power cycle all conected sensors.
+
+    time_off: sleep time in seconds.
     """
 
     if not info_config['pin_power']:
@@ -200,7 +213,7 @@ def main():
     args = parser.parse_args()
 
     # Config file.
-    if args.config_file is None:
+    if not args.config_file:
         args.config_file = 'config_data.yml'
 
     f = os.path.join(path_to_module(), args.config_file)
