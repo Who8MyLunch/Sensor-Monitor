@@ -96,15 +96,17 @@ def record_data(channels, queue, service, tableId, info_config):
     for samples in source:
         try:
             # Pass the data along to the uploader.
+            blink_sensors.frequency = 0
+
             sink.send(samples)
+
+            blink_sensors.frequency = len(samples)
 
             # Pretty status message.
             t = samples[0]['seconds']
             fmt = '%Y-%m-%d %H-%M-%S'
             time_stamp = utility.pretty_timestamp(t, fmt)
             print('samples:%3d [%s]' % (len(samples), time_stamp) )
-
-            blink_sensors.frequency = len(samples)
 
             # Do a power cycle?
             if time.time() - time_power_zero > power_cycle_interval:

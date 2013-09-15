@@ -81,8 +81,7 @@ def data_uploader(service, tableId, pin_status):
     """
     Coroutine to receive new data and upload to a Google Fusion table.
     """
-    if pin_status:
-        blink_status = blinker.Blinker(pin_status)
+    blink_status = blinker.Blinker(pin_status)
 
     keep_looping = True
     while keep_looping:
