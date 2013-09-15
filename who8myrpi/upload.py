@@ -93,13 +93,13 @@ def data_uploader(service, tableId, pin_status):
             # Upload the new data.
             num_rows = len(data_rows)
             if num_rows > 0:
+                blink_status.frequency = 30
                 try:
-                    blink_status.frequency = 30
                     response = fusion_tables.fusion_table.add_rows(service, tableId, data_rows)
-                    blink_status.frequency = 0
                 except fusion_tables.errors.Who8MyGoogleError as e:
-                    blink_status.frequency = 0
                     print('Error caught: %s' % e.message)
+
+                blink_status.frequency = 0
 
                 # Postprocess.
                 key = 'numRowsReceived'
