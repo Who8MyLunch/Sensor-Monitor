@@ -11,7 +11,6 @@ entry_points = {'console_scripts': ['who8myrpi = who8myrpi.who8myrpi:main'
                                     ]
                 }
 
-
 # WiriingPi source, includes, and options.
 include_dirs = ['who8myrpi',
                 '../WiringPi',
@@ -22,17 +21,6 @@ extra_compile_args = []
 extra_link_args = []
 
 libraries = ['wiringPi']
-
-# source_wiringPi = ['who8myrpi/wiringPi/wiringPi.c',
-                   # 'who8myrpi/wiringPi/wiringPiSPI.c',
-                   # 'who8myrpi/wiringPi/wiringSerial.c',
-                   # 'who8myrpi/wiringPi/wiringShift.c',
-                   # 'who8myrpi/wiringPi/softPwm.c',
-                   # 'who8myrpi/wiringPi/piThread.c',
-                   # 'who8myrpi/wiringPi/gertboard.c',
-                   # 'who8myrpi/wiringPi/wiringPiFace.c',
-                   # 'who8myrpi/wiringPi/lcd.c',
-                   # 'who8myrpi/wiringPi/piHiPri.c']
 
 # GPIO extension.
 source_files = ['who8myrpi/_gpio.pyx'] #+ source_wiringPi
