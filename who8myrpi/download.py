@@ -6,10 +6,10 @@ import datetime
 import time
 
 import numpy as np
-import data_io as io
+import data_io
 
 import who8mygoogle.fusion_tables as fusion_tables
-
+import master_table
 
 fname_client = 'client_secrets.json'
 api_name = 'fusiontables'
@@ -32,11 +32,12 @@ def connect_table(table_name, path_credentials):
 
 
 
-def download_data(service, tableId, pin_status):
+def download_data(service, tableId):
     """
     Download some data from a Google Fusion Table.
     """
-    blink_status = blinker.Blinker(pin_status)
+
+
 
     keep_looping = True
     while keep_looping:
@@ -103,10 +104,14 @@ if __name__ == '__main__':
     fname = 'config_data.yml'
     info_config, meta = data_io.read(fname)
 
-    val = get(info_config, flags)
+    val = master_table.get(info_config, flags)
 
-    print()
-    for k, v in val.items():
-        print('{:s}: {:s}'.format(k, v))
+    service = master_table.get_api_service(flags)
+    fusion_tables.fusion_table.display_existing_tables(service)
+
+
+    # print()
+    # for k, v in val.items():
+    #     print('{:s}: {:s}'.format(k, v))
 
     # Done.
