@@ -3,10 +3,10 @@ from __future__ import division, print_function, unicode_literals
 
 import os
 import time
-
-import numpy as np
+import argparse
 
 import simplejson as json
+import numpy as np
 
 import who8mygoogle.fusion_tables as fusion_tables
 
@@ -27,7 +27,7 @@ def path_to_module():
 #######################################################
 
 
-def get_api_service():
+def get_api_service(flags=None):
     """
     Establish credentials and retrieve API service object.
     """
@@ -39,7 +39,7 @@ def get_api_service():
         os.makedirs(path_credentials)
 
     f = os.path.join(path_credentials, fname_client)
-    credentials = fusion_tables.authorize.build_credentials(f, api_name)
+    credentials = fusion_tables.authorize.build_credentials(f, api_name, flags)
     service = fusion_tables.authorize.build_service(api_name, credentials)
 
     # Done.
@@ -47,11 +47,11 @@ def get_api_service():
 
 
 
-def get(info_config):
+def get(info_config, flags):
     """
     Retrieve current data from master config table.
     """
-    service = get_api_service()
+    service = get_api_service(flags)
     query_service = service.query()
 
     # Get the most recent row of config data.
@@ -92,12 +92,24 @@ if __name__ == '__main__':
 
     Also good for debugging connection to Google via API.
     """
+    import argparse
+    import oauth2client.client
+    import oauth2client.file
+    import oauth2client.tools
+
     import data_io
+
     fname = 'config_data.yml'
+
+    parser = argparse.ArgumentParser(description="authorize",
+                                     formatter_class=argparse.RawDescriptionHelpFormatter,
+                                     parents=[oauth2client.tools.argparser])
+    flags = parser.parse_args()
 
     info_config, meta = data_io.read(fname)
 
-    val = get(info_config)
+    val = get(info_config, flags)
+
     print()
     for k, v in val.items():
         print('{:s}: {:s}'.format(k, v))
