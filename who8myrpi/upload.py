@@ -79,7 +79,7 @@ def process_samples(samples):
 @coroutine
 def data_uploader(service, tableId, pin_status):
     """
-    Coroutine to receive new data and upload to a Google Fusion table.
+    Coroutine to receive new data and upload to a Google Fusion Table.
     """
     blink_status = blinker.Blinker(pin_status)
 
