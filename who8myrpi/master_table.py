@@ -27,31 +27,20 @@ def path_to_module():
 #######################################################
 
 
-def get_api_service(flags=None):
+def get(info_config, flags=None):
     """
-    Establish credentials and retrieve API service object.
+    Retrieve current data from master config table.
     """
-    fname_client = 'client_secrets.json'
+
     api_name = 'fusiontables'
+    fname_client_secrets = 'client_secrets.json'
 
     path_credentials = os.path.join(path_to_module(), 'credentials')
     if not os.path.isdir(path_credentials):
         os.makedirs(path_credentials)
 
-    f = os.path.join(path_credentials, fname_client)
-    credentials = fusion_tables.authorize.build_credentials(f, api_name, flags)
-    service = fusion_tables.authorize.build_service(api_name, credentials)
-
-    # Done.
-    return service
-
-
-
-def get(info_config, flags=None):
-    """
-    Retrieve current data from master config table.
-    """
-    service = get_api_service(flags)
+    f = os.path.join(path_credentials, fname_client_secrets)
+    service = fusion_tables.authorize.get_api_service(f, api_name, flags)
     query_service = service.query()
 
     # Get the most recent row of config data.
