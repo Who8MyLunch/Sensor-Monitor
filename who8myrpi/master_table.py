@@ -47,7 +47,7 @@ def get_api_service(flags=None):
 
 
 
-def get(info_config, flags):
+def get(info_config, flags=None):
     """
     Retrieve current data from master config table.
     """
