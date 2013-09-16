@@ -256,9 +256,9 @@ def main():
         print()
         print('Main: User stop!')
 
-    # except Exception as e:
-    #     channels = None
-    #     print(e)
+    except Exception as e:
+        print('Something went horribly wrong!  Shutting down.')
+        print(e)
 
     # Finish.
     print('Stop recording')

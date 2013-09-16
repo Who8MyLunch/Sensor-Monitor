@@ -11,18 +11,17 @@ import data_io
 import who8mygoogle.fusion_tables as fusion_tables
 import master_table
 
-fname_client = 'client_secrets.json'
-api_name = 'fusiontables'
-
 #################################################
+
+def path_to_module():
+    p = os.path.dirname(os.path.abspath(__file__))
+    return p
 
 
 def download_data(service, tableId):
     """
     Download some data from a Google Fusion Table.
     """
-
-
 
     keep_looping = True
     while keep_looping:
@@ -78,7 +77,6 @@ if __name__ == '__main__':
     import argparse
     import oauth2client.tools
 
-
     # parser is here to play nice with Google's stuff using the flags variable.
     parser = argparse.ArgumentParser(description="Data Downloader",
                                      formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -91,15 +89,25 @@ if __name__ == '__main__':
 
     val = master_table.get(info_config, flags)
 
-    service = master_table.get_api_service(flags)
-    fusion_tables.fusion_table.display_existing_tables(service)
+    print()
+    for k, v in val.items():
+        print('{:s}: {:s}'.format(k, v))
+
+    table_id = val['data_table_id']
+
+    1/0
 
     api_name = 'fusiontables'
     fname_client_secrets = 'client_secrets.json'
 
     path_credentials = os.path.join(path_to_module(), 'credentials')
-    if not os.path.isdir(path_credentials):
-        os.makedirs(path_credentials)
+    f = os.path.join(path_credentials, fname_client_secrets)
+
+    service = fusion_tables.authorize.get_api_service(f, api_name, flags)
+    fusion_tables.fusion_table.display_existing_tables(service)
+
+    1/0
+
 
     # Fetch main service object.
     f = os.path.join(path_credentials, fname_client_secrets)
@@ -136,12 +144,9 @@ if __name__ == '__main__':
         info_data[k] = v
 
     # Done.
-    return info_data
+    # return info_data
 
 
 
-    # print()
-    # for k, v in val.items():
-    #     print('{:s}: {:s}'.format(k, v))
 
     # Done.
