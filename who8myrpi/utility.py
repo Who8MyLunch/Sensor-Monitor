@@ -45,14 +45,14 @@ def network_reset():
     cmd = 'ifdown eth0'
     stdout, stderr = run_cmd(cmd)
     if stderr != '':
-        print('uh oh!')
+        print('utility.network_reset A: uh oh!')
 
     time.sleep(5)
 
     cmd = 'ifup eth0'
     stdout, stderr = run_cmd(cmd)
     if stderr != '':
-        print('uh oh!')
+        print('utility.network_reset B: uh oh!')
 
     # Done.
 
