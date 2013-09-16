@@ -22,52 +22,7 @@ def download_data(service, tableId):
     """
     Download some data from a Google Fusion Table.
     """
-
-    keep_looping = True
-    while keep_looping:
-        try:
-            # Receive new data samples.
-            samples = (yield)
-            data_rows, column_names = process_samples(samples)
-
-            # Upload the new data.
-            num_rows = len(data_rows)
-            if num_rows > 0:
-                blink_status.frequency = 30
-                try:
-                    response = fusion_tables.fusion_table.add_rows(service, tableId, data_rows)
-                except fusion_tables.errors.Who8MyGoogleError as e:
-                    print('Error caught: %s' % e.message)
-
-                blink_status.frequency = 0
-
-                # Postprocess.
-                key = 'numRowsReceived'
-                if key in response:
-                    num_uploaded = int(response[key])
-
-                    # Everything worked OK?
-                    if num_uploaded != num_rows:
-                        print('Error: Problem uploading data: num_uploaded != num_rows: %s, %s' %
-                              (num_uploaded, num_rows))
-                        blink_status.frequency = 2
-
-                else:
-                    print('Error: Problem uploading data: %s' % response)
-                    blink_status.frequency = 2
-
-        except GeneratorExit:
-            print('Data uploader: GeneratorExit')
-            keep_looping = False
-        except Exception as e:
-            blink_status.stop()
-            raise e
-
-    # Stop the blinker.
-    blink_status.frequency = 0
-    blink_status.stop()
-
-    # Done.
+    pass
 
 
 if __name__ == '__main__':
@@ -87,33 +42,44 @@ if __name__ == '__main__':
     fname = 'config_data.yml'
     info_config, meta = data_io.read(fname)
 
+    print('Query Master Table')
     val = master_table.get(info_config, flags)
 
     print()
-    for k, v in val.items():
+    keys = ['experiment_name', 'data_table_id']
+    for k in keys:
+        v = val[k]
         print('{:s}: {:s}'.format(k, v))
 
+    print('\n\n')
     table_id = val['data_table_id']
 
-    1/0
 
+    # Connect to Fusion Table using functions my package Who8MyGoogle.
     api_name = 'fusiontables'
-    fname_client_secrets = 'client_secrets.json'
 
+    fname_client_secrets = 'client_secrets.json'
     path_credentials = os.path.join(path_to_module(), 'credentials')
     f = os.path.join(path_credentials, fname_client_secrets)
 
     service = fusion_tables.authorize.get_api_service(f, api_name, flags)
-    fusion_tables.fusion_table.display_existing_tables(service)
+
+
+    names = fusion_tables.fusion_table.get_column_names(service, table_id)
+
+    print()
+    print(names)
 
     1/0
 
 
-    # Fetch main service object.
-    f = os.path.join(path_credentials, fname_client_secrets)
-    service = fusion_tables.authorize.get_api_service(f, api_name, flags)
+
+    # Connect to data table.
+
+    # fusion_tables.fusion_table.display_existing_tables(service)
 
     # Get a query object.
+    # https://developers.google.com/fusiontables/docs/v1/sql-reference
     query_service = service.query()
 
     # Get the most recent row of config data.
