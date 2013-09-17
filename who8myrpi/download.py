@@ -42,7 +42,7 @@ if __name__ == '__main__':
     fname = 'config_data.yml'
     info_config, meta = data_io.read(fname)
 
-    print('Query Master Table')
+    print('\nQuery Master Table')
     val = master_table.get(info_config, flags)
 
     print()
@@ -51,11 +51,10 @@ if __name__ == '__main__':
         v = val[k]
         print('{:s}: {:s}'.format(k, v))
 
-    print('\n\n')
     table_id = val['data_table_id']
 
 
-    # Connect to Fusion Table using functions my package Who8MyGoogle.
+    # Connect to Fusion Table using functions from package Who8MyGoogle.
     api_name = 'fusiontables'
 
     fname_client_secrets = 'client_secrets.json'
