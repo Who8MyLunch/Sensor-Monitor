@@ -57,6 +57,9 @@ def network_reset():
     # Done.
 
 
+# Timezones.
+tz_UTC = pytz.timezone('UTC')
+tz_LAX = pytz.timezone('America/Los_Angeles')
 
 def pretty_timestamp(seconds, fmt=None):
     """
@@ -68,10 +71,7 @@ def pretty_timestamp(seconds, fmt=None):
     if type(seconds) == str or type(seconds) == unicode:
         seconds = float(seconds)
 
-    tz_UTC = pytz.timezone('UTC')
-    dt_UTC = datetime.datetime.fromtimestamp(seconds, pytz.utc)
-
-    tz_LAX = pytz.timezone('America/Los_Angeles')
+    dt_UTC = datetime.datetime.fromtimestamp(seconds, tz_UTC)
     dt_LAX = dt_UTC.astimezone(tz_LAX)
 
     time_stamp = dt_LAX.strftime(fmt)
@@ -79,4 +79,17 @@ def pretty_timestamp(seconds, fmt=None):
     # Done.
     return time_stamp
 
+
+
+def timestamp_seconds(year, month, day, hour, minute):
+    """
+    Compute UTC seconds from time/date specified in LAX timesone..
+    """
+    dt_LAX = datetime.datetime(year, month, day, hour, minute, 0, 0, tz_LAX)
+    dt_UTC = dt_LAX.astimezone(tz_UTC)
+
+    time_seconds = time.mktime(dt_UTC.utctimetuple())
+
+    # Done.
+    return time_seconds
 

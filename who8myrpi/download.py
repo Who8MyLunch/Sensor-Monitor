@@ -11,6 +11,10 @@ import data_io
 import who8mygoogle.fusion_tables as fusion_tables
 import master_table
 
+import simplejson as json
+import apiclient.errors
+import apiclient.http
+
 #################################################
 
 def path_to_module():
@@ -55,38 +59,34 @@ if __name__ == '__main__':
 
 
     # Connect to Fusion Table using functions from package Who8MyGoogle.
-    api_name = 'fusiontables'
+    print('\nQuery Data Table')
 
+    api_name = 'fusiontables'
     fname_client_secrets = 'client_secrets.json'
+
     path_credentials = os.path.join(path_to_module(), 'credentials')
     f = os.path.join(path_credentials, fname_client_secrets)
 
     service = fusion_tables.authorize.get_api_service(f, api_name, flags)
 
-
-    names = fusion_tables.fusion_table.get_column_names(service, table_id)
-
-    print()
-    print(names)
-
-    1/0
-
-
-
-    # Connect to data table.
-
-    # fusion_tables.fusion_table.display_existing_tables(service)
+    # Display column names.
+    # names = fusion_tables.fusion_table.get_column_names(service, table_id)
+    # print(names)
 
     # Get a query object.
     # https://developers.google.com/fusiontables/docs/v1/sql-reference
+
     query_service = service.query()
 
-    # Get the most recent row of config data.
-    #num_rows_req = 1
-    #my_query = 'SELECT * FROM ' + info_config['master_table_id'] + ' ORDER BY Time DESC LIMIT ' + \
-    #           str(num_rows_req)
+    # my_query = 'SELECT * FROM ' + info_config['master_table_id'] + ' ORDER BY Time DESC LIMIT ' + str(num_rows_req)
 
-    my_query = 'SELECT * FROM ' + info_config['master_table_id'] + ' LIMIT 1'
+    time_start = 1379302978.74
+    num_rows_req = 10
+
+    my_query = 'SELECT * FROM {:s} WHERE Seconds >= {:f} ORDER BY Seconds ASC LIMIT {:d}'.format(table_id, time_start, num_rows_req)
+
+    # my_query = 'SELECT * FROM {:s} ORDER BY DateTime DESC LIMIT {:d}'.format(table_id, num_rows_req)
+
     request = query_service.sql(sql=my_query)
 
     try:
@@ -96,7 +96,11 @@ if __name__ == '__main__':
         domain = content['error']['errors'][0]['domain']
         message = content['error']['errors'][0]['message']
 
-        raise errors.Who8MyRPiError(domain + ': ' + message)
+        # raise errors.Who8MyRPiError(domain + ': ' + message)
+        print(domain + ': ' + message)
+
+    print(sql_results['rows'])
+    1/0
 
     # Extract most recent row.
     names = sql_results['columns']
@@ -111,7 +115,3 @@ if __name__ == '__main__':
     # Done.
     # return info_data
 
-
-
-
-    # Done.
