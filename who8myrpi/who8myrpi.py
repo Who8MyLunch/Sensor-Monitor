@@ -257,8 +257,9 @@ def main():
         print('Main: User stop!')
 
     except Exception as e:
-        print('Something went horribly wrong!  Shutting down.')
+        print('Main Something went horribly wrong!  Shutting down.')
         print(e)
+        print(type(e))
 
     # Finish.
     print('Stop recording')

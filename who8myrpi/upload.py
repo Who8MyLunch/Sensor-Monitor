@@ -125,9 +125,12 @@ def data_uploader(service, tableId, pin_status):
         except GeneratorExit:
             print('Data uploader: GeneratorExit')
             keep_looping = False
+
         except Exception as e:
-            print('Problem uploading data')
+            print('upload.data_uploader: Problem uploading data')
+            print(type(e))
             print(e)
+
             blink_status.stop()
 
             raise e
