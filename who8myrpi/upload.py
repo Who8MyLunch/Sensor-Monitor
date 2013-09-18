@@ -84,8 +84,12 @@ def data_uploader(service, tableId, pin_status):
     blink_status = blinker.Blinker(pin_status)
 
     keep_looping = True
+    samples = None
     while keep_looping:
         try:
+            if samples:
+                print('some samples did not get uploaded!!')
+
             # Receive new data samples.
             samples = (yield)
             data_rows, column_names = process_samples(samples)
@@ -96,8 +100,10 @@ def data_uploader(service, tableId, pin_status):
                 blink_status.frequency = 30
                 try:
                     response = fusion_tables.fusion_table.add_rows(service, tableId, data_rows)
+                    samples = None
                 except fusion_tables.errors.Who8MyGoogleError as e:
-                    print('Error caught: %s' % e.message)
+                    print('upload.data_uploader caught error: %s' % e.message)
+                    response = None
 
                 blink_status.frequency = 0
 
