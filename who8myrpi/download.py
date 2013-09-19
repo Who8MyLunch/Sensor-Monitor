@@ -78,50 +78,37 @@ if __name__ == '__main__':
     # https://developers.google.com/fusiontables/docs/v1/sql-reference
     query_service = service.query()
 
-    # Start time.
+    # Start & end time.
     year = 2013
     month = 9
     day = 18
-    hour = 7
-    minute = 27
-
+    hour = 19
+    minute = 0
     time_start = utility.timestamp_seconds(year, month, day, hour, minute)
-    print(time_start)
 
-    import time
-    t = time.time()
+    hour = 20
+    minute = 30
+    time_end = utility.timestamp_seconds(year, month, day, hour, minute)
 
-    print(t)
-    print(time_start - t)
+    assert(time_end - time_start > 0)
 
     num_rows_req = 10
-    my_query = 'SELECT * FROM {:s} WHERE Seconds >= {:f} ORDER BY Seconds ASC LIMIT {:d}'.format(table_id, time_start, num_rows_req)
+    conditions = 'Seconds >= {:.1f} AND Seconds <= {:.1f}'.format(time_start, time_end)
+
+    # All data between start and stop times.
+    # my_query = 'SELECT * FROM {:s} WHERE {:s} ORDER BY Seconds ASC'.format(table_id, conditions)
+
+    # Most recent data samples.
+    num_rows_req = 5
+    my_query = 'SELECT * FROM {:s} ORDER BY Seconds DESC LIMIT {:d}'.format(table_id, num_rows_req)
 
     request = query_service.sql(sql=my_query)
 
     try:
         sql_results = request.execute()
-    except apiclient.errors.HttpError as e:
-        content = json.loads(e.content)
-        domain = content['error']['errors'][0]['domain']
-        message = content['error']['errors'][0]['message']
+    except Exception as e:
+        raise e
 
-        # raise errors.Who8MyRPiError(domain + ': ' + message)
-        print(domain + ': ' + message)
-
-    print(sql_results['rows'])
-    1/0
-
-    # Extract most recent row.
-    names = sql_results['columns']
-    row = sql_results['rows'][0]
-
-    info_data = {}
-    for k, v in zip(names, row):
-        k = k.lower()
-        k = '_'.join(k.split())
-        info_data[k] = v
-
-    # Done.
-    # return info_data
+    for r in sql_results['rows']:
+        print(r)
 
