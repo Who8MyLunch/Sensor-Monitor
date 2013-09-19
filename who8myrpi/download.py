@@ -10,6 +10,7 @@ import data_io
 
 import who8mygoogle.fusion_tables as fusion_tables
 import master_table
+import utility
 
 import simplejson as json
 import apiclient.errors
@@ -75,17 +76,26 @@ if __name__ == '__main__':
 
     # Get a query object.
     # https://developers.google.com/fusiontables/docs/v1/sql-reference
-
     query_service = service.query()
 
-    # my_query = 'SELECT * FROM ' + info_config['master_table_id'] + ' ORDER BY Time DESC LIMIT ' + str(num_rows_req)
+    # Start time.
+    year = 2013
+    month = 9
+    day = 18
+    hour = 7
+    minute = 27
 
-    time_start = 1379302978.74
+    time_start = utility.timestamp_seconds(year, month, day, hour, minute)
+    print(time_start)
+
+    import time
+    t = time.time()
+
+    print(t)
+    print(time_start - t)
+
     num_rows_req = 10
-
     my_query = 'SELECT * FROM {:s} WHERE Seconds >= {:f} ORDER BY Seconds ASC LIMIT {:d}'.format(table_id, time_start, num_rows_req)
-
-    # my_query = 'SELECT * FROM {:s} ORDER BY DateTime DESC LIMIT {:d}'.format(table_id, num_rows_req)
 
     request = query_service.sql(sql=my_query)
 

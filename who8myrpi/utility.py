@@ -5,6 +5,8 @@ import subprocess
 import shlex
 import time
 import datetime
+import calendar
+
 import pytz
 import string
 
@@ -85,11 +87,10 @@ def timestamp_seconds(year, month, day, hour, minute):
     """
     Compute UTC seconds from time/date specified in LAX timesone..
     """
-    dt_LAX = datetime.datetime(year, month, day, hour, minute, 0, 0, tz_LAX)
+    dt_LAX = tz_LAX.localize( datetime.datetime(year, month, day, hour, minute, 0, 0) )
     dt_UTC = dt_LAX.astimezone(tz_UTC)
 
-    time_seconds = time.mktime(dt_UTC.utctimetuple())
+    time_seconds = calendar.timegm(dt_UTC.utctimetuple())
 
     # Done.
     return time_seconds
-

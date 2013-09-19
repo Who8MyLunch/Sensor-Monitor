@@ -103,6 +103,9 @@ def data_uploader(service, tableId, pin_status):
                     samples = None
                 except fusion_tables.errors.Who8MyGoogleError as e:
                     print('upload.data_uploader caught error: %s' % e.message)
+                    print('was trying to upload following samples:')
+                    print(samples)
+
                     response = None
 
                 blink_status.frequency = 0
@@ -127,7 +130,7 @@ def data_uploader(service, tableId, pin_status):
             keep_looping = False
 
         except Exception as e:
-            print('upload.data_uploader: Problem uploading data')
+            print('upload.data_uploader: Unknown problem uploading data')
             print(type(e))
             print(e)
 
