@@ -126,7 +126,7 @@ def data_uploader(service, tableId, pin_status):
                         print('Error: Problem uploading data: %s' % response)
                         blink_status.frequency = 2
                 else:
-                    print('Error: Problem uploading data, response == None)
+                    print('Error: Problem uploading data, response == None')
                     blink_status.frequency = 2
 
         except GeneratorExit:
