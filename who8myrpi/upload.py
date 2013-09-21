@@ -111,18 +111,22 @@ def data_uploader(service, tableId, pin_status):
                 blink_status.frequency = 0
 
                 # Postprocess.
-                key = 'numRowsReceived'
-                if key in response:
-                    num_uploaded = int(response[key])
+                if response:
+                    key = 'numRowsReceived'
+                    if key in response:
+                        num_uploaded = int(response[key])
 
-                    # Everything worked OK?
-                    if num_uploaded != num_rows:
-                        print('Error: Problem uploading data: num_uploaded != num_rows: %s, %s' %
-                              (num_uploaded, num_rows))
+                        # Everything worked OK?
+                        if num_uploaded != num_rows:
+                            print('Error: Problem uploading data: num_uploaded != num_rows: %s, %s' %
+                                  (num_uploaded, num_rows))
+                            blink_status.frequency = 2
+
+                    else:
+                        print('Error: Problem uploading data: %s' % response)
                         blink_status.frequency = 2
-
                 else:
-                    print('Error: Problem uploading data: %s' % response)
+                    print('Error: Problem uploading data, response == None)
                     blink_status.frequency = 2
 
         except GeneratorExit:
