@@ -2,29 +2,47 @@
 from __future__ import division, print_function, unicode_literals
 
 import os
-import time
-import argparse
 
 import simplejson as json
-import numpy as np
 
 import who8mygoogle.fusion_tables as fusion_tables
 
 import apiclient.errors
 import apiclient.http
 
-import utility
+import data_io
 import errors
 
+import argparse
+# import oauth2client.client
+# import oauth2client.file
+import oauth2client.tools
 
-#######################################################
+#################################################
 
 
 def path_to_module():
     p = os.path.dirname(os.path.abspath(__file__))
     return p
 
-#######################################################
+#################################################
+
+
+def build_config():
+    """
+    This is a helper function to assemble required config data.
+    """
+    fname = 'config_data.yml'
+
+    # parser is here to play nice with Google's stuff using the flags variable.
+    parser = argparse.ArgumentParser(description="authorize",
+                                     formatter_class=argparse.RawDescriptionHelpFormatter,
+                                     parents=[oauth2client.tools.argparser])
+    flags = parser.parse_args()
+
+    info, meta = data_io.read(fname)
+
+    return info, flags
 
 
 def get(info_config, flags=None):
@@ -76,6 +94,7 @@ def get(info_config, flags=None):
     # Done.
     return info_data
 
+#################################################
 
 
 if __name__ == '__main__':
@@ -84,23 +103,16 @@ if __name__ == '__main__':
 
     Also good for debugging connection to Google via API.
     """
-    import argparse
-    import oauth2client.client
-    import oauth2client.file
-    import oauth2client.tools
 
-    import data_io
+    # fname = 'config_data.yml'
+    # parser = argparse.ArgumentParser(description="authorize",
+    #                                  formatter_class=argparse.RawDescriptionHelpFormatter,
+    #                                  parents=[oauth2client.tools.argparser])
+    # flags = parser.parse_args()
+    # info_config, meta = data_io.read(fname)
 
-    fname = 'config_data.yml'
-
-    parser = argparse.ArgumentParser(description="authorize",
-                                     formatter_class=argparse.RawDescriptionHelpFormatter,
-                                     parents=[oauth2client.tools.argparser])
-    flags = parser.parse_args()
-
-    info_config, meta = data_io.read(fname)
-
-    val = get(info_config, flags)
+    info, flags = build_config()
+    val = get(info, flags)
 
     print()
     for k, v in val.items():
