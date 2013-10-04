@@ -27,12 +27,15 @@ def path_to_module():
 
 #################################################
 
+_FNAME_CLIENT_SECRETS = 'client_secrets.json'
+_FOLDER_CREDENTIALS = 'credentials'
 
-def data_fetch(my_query):
+
+def fetch_data(my_query):
     """
-    Fetch the data from Google.
+    Fetch the data from Google Fusion Table.
+    The query string must contain the ID for the Fusion Table.
     """
-    print('Query Data Table')
 
     # Parser is here to play nice with Google's stuff using the flags variable.
     parser = argparse.ArgumentParser(description="Data Downloader",
@@ -43,9 +46,8 @@ def data_fetch(my_query):
     # Connect to Fusion Table using functions from package Who8MyGoogle.
     api_name = 'fusiontables'
 
-    fname_client_secrets = 'client_secrets.json'
-    path_credentials = os.path.join(path_to_module(), 'credentials')
-    f = os.path.join(path_credentials, fname_client_secrets)
+    path_credentials = os.path.join(path_to_module(), _FOLDER_CREDENTIALS)
+    f = os.path.join(path_credentials, _FNAME_CLIENT_SECRETS)
 
     # Service object.
     service = fusion_tables.authorize.get_api_service(f, api_name, flags)
@@ -57,35 +59,26 @@ def data_fetch(my_query):
     request = query_service.sql(sql=my_query)
     sql_results = request.execute()
 
-    # Done.
-    return sql_results['rows']
+    # Pull out just the rows.
+    data = sql_results['rows']
+
+    return data
 
 
 def data_recent(table_id, num_rows=10):
     """
-    Download some data from a Google Fusion Table.
+    Download most recent data from a Google Fusion Table.
+    Default to just fetching 10 rows.
     """
-
-    # Most recent data samples.
     my_query = 'SELECT * FROM {:s} ORDER BY Seconds DESC LIMIT {:d}'.format(table_id, num_rows)
-
-    return data_fetch(my_query)
-
-    # query_service = service.query()
-    # request = query_service.sql(sql=my_query)
-    # try:
-    #     sql_results = request.execute()
-    # except Exception as e:
-    #     raise e
-    # for r in sql_results['rows']:
-    #     print(r)
+    return fetch_data(my_query)
 
 
 def data_between(table_id, seconds_start, seconds_end=None):
     """
-    Download some data from a Google Fusion Table.
+    Download data spanning time range from a Google Fusion Table.
+    If end time not specified then fetch up to most recent.
     """
-
     if seconds_end:
         conditions = 'Seconds >= {:.1f} AND Seconds <= {:.1f}'.format(seconds_start, seconds_end)
     else:
@@ -94,28 +87,17 @@ def data_between(table_id, seconds_start, seconds_end=None):
     # All data between start and stop times.
     my_query = 'SELECT * FROM {:s} WHERE {:s} ORDER BY Seconds ASC'.format(table_id, conditions)
 
-    return data_fetch(my_query)
+    return fetch_data(my_query)
+
+#################################################
 
 
 if __name__ == '__main__':
     """
-    Download data from current fusion table.
+    Example use.
     """
-    # parser is here to play nice with Google's stuff using the flags variable.
-    # parser = argparse.ArgumentParser(description="Data Downloader",
-    #                                  formatter_class=argparse.RawDescriptionHelpFormatter,
-    #                                  parents=[oauth2client.tools.argparser])
-    # flags = parser.parse_args()
 
-    # # Read config file for Master Table information.
-    # fname = 'config_data.yml'
-    # info_config, meta = data_io.read(fname)
-
-    info, flags = master_table.build_config()
-    val = master_table.get(info, flags)
-
-    table_id = val['data_table_id']
-
+    table_id = master_table.get_current_table_id()
     print('Table ID: {:s}'.format(table_id))
 
     # Start and end time.

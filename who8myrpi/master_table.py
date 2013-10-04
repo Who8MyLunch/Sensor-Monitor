@@ -27,6 +27,9 @@ def path_to_module():
 
 #################################################
 
+_FNAME_CLIENT_SECRETS = 'client_secrets.json'
+_FOLDER_CREDENTIALS = 'credentials'
+
 
 def build_config():
     """
@@ -51,24 +54,19 @@ def get(info_config, flags=None):
     """
 
     api_name = 'fusiontables'
-    fname_client_secrets = 'client_secrets.json'
 
-    path_credentials = os.path.join(path_to_module(), 'credentials')
+    path_credentials = os.path.join(path_to_module(), _FOLDER_CREDENTIALS)
     if not os.path.isdir(path_credentials):
         os.makedirs(path_credentials)
 
     # Fetch main service object.
-    f = os.path.join(path_credentials, fname_client_secrets)
+    f = os.path.join(path_credentials, _FNAME_CLIENT_SECRETS)
     service = fusion_tables.authorize.get_api_service(f, api_name, flags)
 
     # Get a query object.
     query_service = service.query()
 
     # Get the most recent row of config data.
-    #num_rows_req = 1
-    #my_query = 'SELECT * FROM ' + info_config['master_table_id'] + ' ORDER BY Time DESC LIMIT ' + \
-    #           str(num_rows_req)
-
     my_query = 'SELECT * FROM ' + info_config['master_table_id'] + ' LIMIT 1'
     request = query_service.sql(sql=my_query)
 
@@ -93,6 +91,19 @@ def get(info_config, flags=None):
 
     # Done.
     return info_data
+
+
+def get_current_table_id():
+    """
+    Get from master table the ID for current working table.
+    """
+
+    info, flags = build_config()
+    val = get(info, flags)
+
+    table_id = val['data_table_id']
+
+    return table_id
 
 #################################################
 
