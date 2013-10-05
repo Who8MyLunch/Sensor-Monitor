@@ -14,7 +14,8 @@ import utility
 
 #################################################
 # Helper functions.
-#
+
+
 def path_to_module():
     p = os.path.dirname(os.path.abspath(__file__))
     return p
@@ -36,10 +37,10 @@ def f2c(F):
     return C
 
 
-
 #################################################
 # Data record.
-#
+
+
 def compute_checksum(byte_1, byte_2, byte_3, byte_4, byte_5):
     """
     Compute checksum.
@@ -94,7 +95,6 @@ def bits_to_bytes(bits):
     return byte_1, byte_2, byte_3, byte_4, ok
 
 
-
 def read_dht22_single(pin_data, delay=1):
     """
     Read temperature and humidity data from sensor.
@@ -121,8 +121,8 @@ def read_dht22_single(pin_data, delay=1):
 
         if ok:
             # Checksum is OK.
-            RH = float( (np.left_shift(byte_1, 8) + byte_2) / 10. )
-            Tc = float( (np.left_shift(byte_3, 8) + byte_4) / 10. )
+            RH = float((np.left_shift(byte_1, 8) + byte_2) / 10.)
+            Tc = float((np.left_shift(byte_3, 8) + byte_4) / 10.)
         else:
             # Problem!
             msg = 'Fail checksum'
@@ -143,6 +143,7 @@ def read_dht22_single(pin_data, delay=1):
 _time_wait_default = 8.
 _time_history_default = 10*60
 
+
 class Channel(threading.Thread):
     def __init__(self, pin, queue,
                  time_wait=None, time_history=None, *args, **kwargs):
@@ -158,10 +159,10 @@ class Channel(threading.Thread):
         if not time_wait:
             time_wait = _time_wait_default
 
-        if not time_history :
+        if not time_history:
             time_history = _time_history_default
 
-        self.num_min_history = 10  # minimum number of historical samples required to test for outliers.
+        self.num_min_history = 10  # minimum historical samples required to test for outliers.
         self.check_threshold = 25  # error threshold for temperature and humidity.
         self.pin = pin
         self.time_wait = time_wait
@@ -176,7 +177,6 @@ class Channel(threading.Thread):
         # print('Channel start: %d' % self.pin)
 
         # Done.
-
 
     def run(self):
         """
@@ -214,46 +214,13 @@ class Channel(threading.Thread):
             if time_delta > 0:
                 self.sleep(time_delta)
 
-            # Repeat loop.
-
-        # Done.
         print('Channel exit: %d' % self.pin)
-
-
-    # def status_indicator(self, flag):
-    #     """
-    #     Configure and set status LEDs.
-    #     flag  > 0: 'ok'
-    #     flag == 0: 'error'
-    #     flag  < 0: 'off'
-    #     """
-    #     if self.ok and self.err:
-    #         # Status blinkers are defined.
-    #         if flag > 0:
-    #             # Everything is OK.
-    #             # dht22._digitalWrite(self.pin_ok, dht22._HIGH)
-    #             dht22._digitalWrite(self.pin_err, dht22._LOW)
-    #         elif flag == 0:
-    #             # Not ok.  Problem.
-    #             dht22._digitalWrite(self.pin_err, dht22._HIGH)
-    #             # dht22._digitalWrite(self.pin_ok, dht22._LOW)
-    #         else:
-    #             # Off.
-    #             dht22._digitalWrite(self.pin_err, dht22._LOW)
-    #             # dht22._digitalWrite(self.pin_ok, dht22._LOW)
-    #     else:
-    #         # No status pins configured.  Do nothing.
-    #         pass
-    # # Done.
-
-
 
     def sleep(self, time_sleep):
         """
         Sleep for specified interval.  Check for instructions to exit thread.
         """
         dt = 0.1
-
         time_zero = time.time()
         time_elapsed = 0.
 
@@ -261,15 +228,11 @@ class Channel(threading.Thread):
             time.sleep(dt)
             time_elapsed = time.time() - time_zero
 
-        # Done.
-
-
     def stop(self):
         """
         Tell thread to stop running.
         """
         self.keep_running = False
-
 
     def add_data(self, info):
         """
@@ -291,10 +254,6 @@ class Channel(threading.Thread):
             print('TODO: implement better way to handle this exception: %s' % e)
             raise e
 
-        # Done.
-
-
-
     def adjust_history(self):
         """
         Remove data from history if older than time window.
@@ -313,11 +272,8 @@ class Channel(threading.Thread):
         for d in list_too_old:
             self.data_history.remove(d)
 
-        # Done.
-        num_remain, num_removed = len(self.data_history), len(list_too_old)
-        return num_remain, num_removed
-
-
+        # num_remain, num_removed
+        return len(self.data_history), len(list_too_old)
 
     def _check_data_value(self, samples, value):
         """
@@ -329,17 +285,14 @@ class Channel(threading.Thread):
         if delta > self.check_threshold:
             # Fail.
             value_checked = float(value_med)
-
-            print('CHECK FAIL!  Replace with historical median value: %.2f -> %.2f' % (value, value_checked))
+            msg = 'CHECK FAIL!  Replace: %.2f -> %.2f' % (value, value_checked)
+            print(msg)
 
         else:
             # Ok.
             value_checked = value
 
-        # Done.
         return value_checked
-
-
 
     def check_values(self, info_new):
         """
@@ -360,10 +313,7 @@ class Channel(threading.Thread):
             # Not enough history so just pass the the data through.
             info_checked = info_new
 
-        # Done.
         return info_checked
-
-
 
     @property
     def freshness(self):
@@ -378,17 +328,15 @@ class Channel(threading.Thread):
 
             return delta_time
 
-
-
     def pretty_sample_string(self, info):
         """
         Construct nice string representation of data sample information.
         """
         time_stamp_pretty = utility.pretty_timestamp(info['seconds'])
-        result = 'pin: %2d, Tf: %.1f, RH: %.1f, time: %s' % (self.pin, info['Tf'], info['RH'], time_stamp_pretty)
+        template = 'pin: %2d, Tf: %.1f, RH: %.1f, time: %s'
+        result = template % (self.pin, info['Tf'], info['RH'], time_stamp_pretty)
 
         return result
-
 
     def pretty_status(self):
         """
@@ -406,9 +354,8 @@ class Channel(threading.Thread):
         print(' freshness: %.1f seconds' % self.freshness)
         print()
 
-
-
 #################################################
+
 
 def stop_channels(channels):
     """
@@ -429,6 +376,7 @@ def stop_channels(channels):
 def pause_channels(channels):
     for c in channels:
         c.record_data = False
+
 
 def unpause_channels(channels):
     for c in channels:
@@ -451,12 +399,11 @@ def start_channels(pins_data):
         channels.append(c)
 
         # Random small pause before creating next channel.
-        dt = random.uniform(0.05, 0.25)
+        dt = random.uniform(0.0, 0.1)
         time.sleep(dt)
 
     # Done.
     return channels, queue
-
 
 
 def check_channels_ok(channels, verbose=False):
@@ -501,7 +448,7 @@ def check_channels_ok(channels, verbose=False):
 #######################################################
 
 
-def data_collector(queue, time_interval=30):
+def data_collector(queue, time_interval=60):
     """
     This is a generator.
 
@@ -511,8 +458,7 @@ def data_collector(queue, time_interval=30):
     """
 
     # Main loop.
-    keep_looping = True
-    while keep_looping:
+    while True:
         try:
             # Wait a bit for some data to accumulate in the queue.
             time.sleep(time_interval)
@@ -522,24 +468,20 @@ def data_collector(queue, time_interval=30):
                 info = queue.get()
                 samples.append(info)
 
-            if len(samples) > 0:
+            if samples:
                 # Yield data to the caller.
                 yield samples
 
         except GeneratorExit:
-            print()
-            print('Data collector: GeneratorExit')
-            keep_looping = False
+            print('\nData collector: GeneratorExit')
+            break
 
         except KeyboardInterrupt:
-            print()
-            print('Data collector: User stop!')
-            keep_looping = False
-
-    # Done.
+            print('\nData collector: User stop!')
+            break
 
 #################################################
-# Examples.
+
 
 def example_single():
     """
@@ -549,8 +491,7 @@ def example_single():
     pin = 25
 
     num_samples = 10
-    time_wait = 5. # seconds
-
+    time_wait = 5.  # seconds
 
     print('\npin: %d\n' % pin)
 
@@ -562,14 +503,11 @@ def example_single():
         else:
             print('Error: %s' % Tc)
 
-
         time.sleep(time_wait)
 
     # Done.
 
 
-
 if __name__ == '__main__':
     # Examples.
     example_single()
-

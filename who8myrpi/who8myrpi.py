@@ -5,7 +5,7 @@ import os
 import argparse
 import time
 
-import numpy as np
+# import numpy as np
 import data_io as io
 
 import dht22
@@ -18,6 +18,7 @@ import master_table
 import who8mygoogle.fusion_tables as fusion_tables
 
 #################################################
+
 
 def path_to_module():
     p = os.path.dirname(os.path.abspath(__file__))
@@ -58,7 +59,6 @@ def initialize_sensors(info_config):
     return channels, queue
 
 
-
 def initialize_upload(info_config):
     """
     Prepare Fusion Table service.
@@ -73,13 +73,13 @@ def initialize_upload(info_config):
     return service, tableId
 
 
-
-def record_data(channels, queue, service, tableId, info_config):
+def record_data(channels, queue, service, tableId, info_config, power_cycle_interval=None):
     """
     Do the work to record data from sensors.
     """
 
-    power_cycle_interval = 5*60  # seconds
+    if not power_cycle_interval:
+        power_cycle_interval = 30*60  # seconds
 
     # Status LED.
     pin_ok = int(info_config['pin_ok'])
@@ -88,8 +88,8 @@ def record_data(channels, queue, service, tableId, info_config):
     blink_sensors = blinker.Blinker(pin_ok)
 
     # Setup.
-    source = sensors.data_collector(queue)                    # data producer / generator
-    sink = upload.data_uploader(service, tableId, pin_upload) # consumer coroutine
+    source = sensors.data_collector(queue)                     # data producer / generator
+    sink = upload.data_uploader(service, tableId, pin_upload)  # consumer coroutine
 
     # Main processing loop.
     time_power_zero = time.time()
@@ -106,7 +106,7 @@ def record_data(channels, queue, service, tableId, info_config):
             t = samples[0]['seconds']
             fmt = '%Y-%m-%d %H-%M-%S'
             time_stamp = utility.pretty_timestamp(t, fmt)
-            print('samples:%3d [%s]' % (len(samples), time_stamp) )
+            print('samples:%3d [%s]' % (len(samples), time_stamp))
 
             # Do a power cycle?
             if time.time() - time_power_zero > power_cycle_interval:
@@ -141,7 +141,6 @@ def record_data(channels, queue, service, tableId, info_config):
     sink.close()
 
     # Done.
-
 
 
 def finalize(channels, info_config):
@@ -219,9 +218,10 @@ def main():
     f = os.path.join(path_to_module(), args.config_file)
     info_master, meta = io.read(f)
 
-    #
+    power_cycle_interval = 15  # minutes
+
+    #############################################
     # Do it.
-    #
     channels = None
     info_config = None
     try:
@@ -249,7 +249,7 @@ def main():
 
         # Start recording data.
         print('Begin recording: %s' % info_config['pins_data'])
-        record_data(channels, queue, service, tableId, info_config)
+        record_data(channels, queue, service, tableId, info_config, power_cycle_interval)
 
     except KeyboardInterrupt:
         # Stop it all when user hits ctrl-C.
@@ -271,6 +271,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
-

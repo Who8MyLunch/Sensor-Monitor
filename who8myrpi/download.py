@@ -2,21 +2,13 @@
 from __future__ import division, print_function, unicode_literals
 
 import os
-# import datetime
-# import time
 import argparse
-
-# import simplejson as json
-# import numpy as np
-# import data_io
 
 import who8mygoogle.fusion_tables as fusion_tables
 import master_table
 import utility
 
 import oauth2client.tools
-# import apiclient.errors
-# import apiclient.http
 
 
 #################################################
