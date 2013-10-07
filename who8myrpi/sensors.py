@@ -406,18 +406,24 @@ def start_channels(pins_data):
     return channels, queue
 
 
-def check_channels_ok(channels, verbose=False):
+def check_channels_ok(channels, time_wait_max=None, verbose=False):
     """
     Ensure all channels are recording ok.
+    time_wait_max: maximum number of seconds to wait for all sensors to be ready.
     """
+    if not time_wait_max:
+        time_wait_max = 90  # seconds
+
     count_ready = 0
-    time_wait_max = 60  # seconds
     time_elapsed = 0
     time_zero = time.time()
 
-    while not (time_elapsed > time_wait_max or count_ready == len(channels)):
+    num_channels = len(channels)
+
+    # Main loop.
+    while not (time_elapsed > time_wait_max or count_ready == num_channels):
         # Keep looping until all channels pass, or until timeout.
-        time.sleep(.25)
+        time.sleep(.2)
 
         # Count number of channels with collected data.
         count_ready_test = 0
@@ -430,20 +436,15 @@ def check_channels_ok(channels, verbose=False):
         if count_ready_test > count_ready:
             count_ready = count_ready_test
             if verbose:
-                print('Channels ok: %d of %d  %s' % (count_ready, len(channels), pins_ready))
+                print('Channels ok: %d of %d  %s' % (count_ready, num_channels, pins_ready))
 
         time_elapsed = time.time() - time_zero
 
     # Finish.
-    value = True
-    if count_ready < len(channels):
-        value = False
-        stop_channels(channels)
-        # raise ValueError('Only %d channels ready (out of %d) after waiting %s seconds.' %
-                         # (count_ready, len(channels), time_wait_max))
-
-    # Done.
-    return value
+    if count_ready == num_channels:
+        return True
+    else:
+        return False
 
 #######################################################
 
@@ -505,8 +506,7 @@ def example_single():
 
         time.sleep(time_wait)
 
-    # Done.
-
+#################################################
 
 if __name__ == '__main__':
     # Examples.
