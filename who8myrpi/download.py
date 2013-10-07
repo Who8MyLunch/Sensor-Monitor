@@ -28,7 +28,6 @@ def fetch_data(my_query):
     Fetch the data from Google Fusion Table.
     The query string must contain the ID for the Fusion Table.
     """
-
     # Parser is here to play nice with Google's stuff using the flags variable.
     parser = argparse.ArgumentParser(description="Data Downloader",
                                      formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -87,7 +86,7 @@ def data_between(table_id, seconds_start, seconds_end=None):
 
 if __name__ == '__main__':
     """
-    Example use.
+    Development and examples.
     """
 
     table_id = master_table.get_current_table_id()
