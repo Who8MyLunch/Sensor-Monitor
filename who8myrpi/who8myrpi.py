@@ -24,8 +24,6 @@ def path_to_module():
     p = os.path.dirname(os.path.abspath(__file__))
     return p
 
-#################################################
-
 
 def initialize_sensors(info_config):
     """
@@ -218,7 +216,7 @@ def main():
     f = os.path.join(path_to_module(), args.config_file)
     info_master, meta = io.read(f)
 
-    power_cycle_interval = 15  # minutes
+    power_cycle_interval = 15*60  # seconds
 
     #############################################
     # Do it.
