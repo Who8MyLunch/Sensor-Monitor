@@ -6,6 +6,7 @@ import shlex
 import datetime
 import calendar
 
+import numpy as np
 import pytz
 import string
 
@@ -68,6 +69,7 @@ def datetime_seconds(seconds_utc, tz='US/Pacific'):
     if isinstance(seconds_utc, basestring):
         seconds_utc = float(seconds_utc)
 
+    seconds_utc = np.round(seconds_utc, 2)
     dt_UTC = datetime.datetime.fromtimestamp(seconds_utc, tz_UTC)
 
     if tz:
@@ -82,6 +84,18 @@ def datetime_seconds(seconds_utc, tz='US/Pacific'):
     return dt_user
 
 
+def timestamp_seconds(year, month, day, hour=0, minute=0, seconds=0):
+    """
+    Compute UTC seconds from time/date specified in LAX timesone.
+    """
+    dt_LAX = tz_LAX.localize(datetime.datetime(year, month, day, hour, minute, seconds, 0))
+    dt_UTC = dt_LAX.astimezone(tz_UTC)
+
+    time_seconds = calendar.timegm(dt_UTC.utctimetuple())
+
+    return time_seconds
+
+
 def pretty_timestamp(seconds_utc, fmt='%Y-%m-%d %H:%M:%S'):
     """
     Make a pretty timestamp from supplied UTC seconds.
@@ -91,15 +105,3 @@ def pretty_timestamp(seconds_utc, fmt='%Y-%m-%d %H:%M:%S'):
     time_stamp = dt_LAX.strftime(fmt)
 
     return time_stamp
-
-
-def timestamp_seconds(year, month, day, hour=0, minute=0, seconds=0):
-    """
-    Compute UTC seconds from time/date specified in LAX timesone..
-    """
-    dt_LAX = tz_LAX.localize(datetime.datetime(year, month, day, hour, minute, seconds, 0))
-    dt_UTC = dt_LAX.astimezone(tz_UTC)
-
-    time_seconds = calendar.timegm(dt_UTC.utctimetuple())
-
-    return time_seconds
