@@ -54,7 +54,7 @@ data_frame = pd.DataFrame(data_dict, index=timestamps)
 
 pins = np.unique(data_frame.ID).values
 
-data_work = data_frame['2013-09-21 00:00':'2013-09-28 00:00']
+data_work = data_frame['2013-09-01 00:00':'2013-11-01 00:00']
 
 #################################################
 # Display.

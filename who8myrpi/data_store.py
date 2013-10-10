@@ -23,16 +23,40 @@ Metadata:
 """
 import os
 import datetime
+import glob
+
 import numpy as np
 import pandas as pd
+import arrow
+
+# import data_io
 
 import download
 import master_table
 import utility
 
-PATH_STORE = os.path.join(os.path.dirname(__file__), 'data_store')
+_path_store = os.path.join(os.path.dirname(__file__), 'data_store')
+# _fname_meta = os.path.join(_path_store, 'metadata.yml')
 
 #################################################
+
+
+def dates_in_storage():
+    """Return list of dates found in storage.
+    """
+    pattern = os.path.join(_path_store, 'data_????-??-??.h5')
+    files = glob.glob(pattern)
+
+    dates = []
+    for f in files:
+        b, e = os.path.splitext(os.path.basename(f))
+        c = b.split('data_')[1]
+
+        year, month, day = c.split('-')
+        date = arrow.Arrow(int(year), int(month), int(day))
+        dates.append(date)
+
+    return sorted(dates)
 
 
 def daterange(start_date, end_date):
@@ -50,20 +74,23 @@ def update(year_start=None, month_start=None, day_start=None):
     Default start date equal to Aug. 8, 2013.
     """
 
+    date_latest = max(dates_in_storage())
+
     # Start time, US/Pacific time.
     if not year_start:
-        year_start = 2013
+        year_start = date_latest.year
 
     if not month_start:
-        month_start = 8
+        month_start = date_latest.month
 
     if not day_start:
-        day_start = 1
+        day_start = date_latest.day
 
     # End time, US/Pacific time.
-    year_end = 2013
-    month_end = 10
-    day_end = 5
+    date_tomorrow = arrow.now().replace(days=1)
+    year_end = date_tomorrow.year
+    month_end = date_tomorrow.month
+    day_end = date_tomorrow.day
 
     #
     # Download data from Google in one big chunk.
@@ -114,8 +141,8 @@ def update(year_start=None, month_start=None, day_start=None):
     dt_start = utility.datetime_seconds(seconds_start)
     dt_end = utility.datetime_seconds(seconds_end)
 
-    if not os.path.isdir(PATH_STORE):
-        os.makedirs(PATH_STORE)
+    if not os.path.isdir(_path_store):
+        os.makedirs(_path_store)
 
     for date_k in daterange(dt_start, dt_end):
         date_filter = date_k.strftime("%Y-%m-%d")
@@ -126,7 +153,7 @@ def update(year_start=None, month_start=None, day_start=None):
 
             # Save to file.
             fname = 'data_{:s}.h5'.format(date_filter)
-            f = os.path.join(PATH_STORE, fname)
+            f = os.path.join(_path_store, fname)
 
             if df_k.shape[0]:
                 print(date_filter, df_k.shape)
