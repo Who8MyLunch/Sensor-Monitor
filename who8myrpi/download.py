@@ -9,18 +9,16 @@ import master_table
 import utility
 
 import oauth2client.tools
+import httplib
 
 
-#################################################
-# Helpers.
 def path_to_module():
     p = os.path.dirname(os.path.abspath(__file__))
     return p
 
-#################################################
 
-_FNAME_CLIENT_SECRETS = 'client_secrets.json'
-_FOLDER_CREDENTIALS = 'credentials'
+_fname_client_secrets = 'client_secrets.json'
+_folder_credentials = 'credentials'
 
 
 def fetch_data(my_query):
@@ -37,8 +35,8 @@ def fetch_data(my_query):
     # Connect to Fusion Table using functions from package Who8MyGoogle.
     api_name = 'fusiontables'
 
-    path_credentials = os.path.join(path_to_module(), _FOLDER_CREDENTIALS)
-    f = os.path.join(path_credentials, _FNAME_CLIENT_SECRETS)
+    path_credentials = os.path.join(path_to_module(), _folder_credentials)
+    f = os.path.join(path_credentials, _fname_client_secrets)
 
     # Service object.
     service = fusion_tables.authorize.get_api_service(f, api_name, flags)
@@ -48,7 +46,12 @@ def fetch_data(my_query):
 
     # Perform request.
     request = query_service.sql(sql=my_query)
-    sql_results = request.execute()
+
+    try:
+        sql_results = request.execute()
+    except httplib.IncompleteRead as e:
+        print('error: {:s}'.format(e.message))
+        raise e
 
     # Pull out just the rows.
     data = sql_results['rows']
@@ -80,7 +83,6 @@ def data_between(table_id, seconds_start, seconds_end=None):
 
     return fetch_data(my_query)
 
-
 #################################################
 
 
@@ -88,7 +90,6 @@ if __name__ == '__main__':
     """
     Development and examples.
     """
-
     table_id = master_table.get_current_table_id()
     print('Table ID: {:s}'.format(table_id))
 
@@ -104,6 +105,5 @@ if __name__ == '__main__':
     # minute = 30
     # time_end = utility.timestamp_seconds(year, month, day, hour, minute)
 
+    # Grab some data and then I can play with it.
     data = data_between(table_id, time_start)
-
-    # Done.

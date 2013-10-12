@@ -21,10 +21,9 @@ fig.clear()
 
 ax = fig.add_subplot(1, 1, 1)
 
-for p in pins:
-    mask = df.Pin == p
-    ax.plot(df[mask].index, df[mask].Humidity, label='H {:02d}'.format(p))
-    ax.plot(df[mask].index, df[mask].Temperature, label='T {:02d}'.format(p))
+p = 25
+mask = df.Pin == p
+ax.plot(df[mask].index, df[mask].Humidity, label='H {:02d}'.format(p))
 
 ax.set_xlabel('Date / Time')
 ax.set_ylabel('Data')

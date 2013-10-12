@@ -16,11 +16,8 @@ This module would support the following basic functions:
 
 Utility functions:
   - Summary of data in local storage (e.g. days)
-
-Metadata:
-  - Parameters from last Fusion Table fetch (e.g. date range of returned data)
-
 """
+
 import os
 import datetime
 import glob
@@ -29,22 +26,23 @@ import numpy as np
 import pandas as pd
 import arrow
 
-# import data_io
-
 import download
 import master_table
 import utility
 
-_path_store = os.path.join(os.path.dirname(__file__), 'data_store')
-# _fname_meta = os.path.join(_path_store, 'metadata.yml')
 
-#################################################
+def path_to_module():
+    p = os.path.dirname(os.path.abspath(__file__))
+    return p
+
+
+_folder_store = 'data_storage'
 
 
 def dates_in_storage():
     """Return list of dates found in storage.
     """
-    pattern = os.path.join(_path_store, 'data_????-??-??.h5')
+    pattern = os.path.join(path_to_module(), _folder_store, 'data_????-??-??.h5')
     files = glob.glob(pattern)
 
     dates = []
@@ -71,10 +69,16 @@ def update(year_start=None, month_start=None, day_start=None):
     """
     Update local data store from Google Fusion Table.
 
-    Default start date equal to Aug. 8, 2013.
+    Default start date equal to day of most recent data in storage.
     """
 
-    date_latest = max(dates_in_storage())
+    dates = dates_in_storage()
+    if dates:
+        date_latest = max(dates)
+    else:
+        year_start = 2013
+        month_start = 8
+        day_start = 1
 
     # Start time, US/Pacific time.
     if not year_start:
@@ -141,8 +145,9 @@ def update(year_start=None, month_start=None, day_start=None):
     dt_start = utility.datetime_seconds(seconds_start)
     dt_end = utility.datetime_seconds(seconds_end)
 
-    if not os.path.isdir(_path_store):
-        os.makedirs(_path_store)
+    path_store = os.path.join(path_to_module(), _folder_store)
+    if not os.path.isdir(path_store):
+        os.makedirs(path_store)
 
     for date_k in daterange(dt_start, dt_end):
         date_filter = date_k.strftime("%Y-%m-%d")
@@ -153,14 +158,34 @@ def update(year_start=None, month_start=None, day_start=None):
 
             # Save to file.
             fname = 'data_{:s}.h5'.format(date_filter)
-            f = os.path.join(_path_store, fname)
+            f = os.path.join(path_store, fname)
 
             if df_k.shape[0]:
                 print(date_filter, df_k.shape)
-                df_k.to_hdf(f, 'df_k', table=True)
+                df_k.to_hdf(f, 'df', table=True)
 
         except KeyError:
             pass
+
+
+def load():
+    """Load all data from storage.
+    """
+    pattern = os.path.join(path_to_module(), _folder_store, 'data_????-??-??.h5')
+    files = glob.glob(pattern)
+
+    if not files:
+        raise ValueError('No data found in storage.')
+
+    data = []
+    for f in files:
+        df_k = pd.read_hdf(f, 'df')
+        data.append(df_k)
+
+    data_frame = pd.concat(data).sort()
+    # pins = np.unique(data_frame.Pin).values
+
+    return data_frame
 
 #################################################
 
@@ -169,4 +194,6 @@ if __name__ == '__main__':
     """
     Examples.
     """
+
+    print('Update data storage.')
     update()
