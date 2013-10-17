@@ -7,11 +7,15 @@
 		},
 		{
 			"follow_symlinks": true,
-			"path": "/home/pierre/Projects/Who8MyGoogle/who8mygoogle/fusion_tables"
+			"path": "h:ome\\pierre\\Projects\\Who8MyGoogle\\who8mygoogle\\fusion_tables"
 		},
 		{
 			"follow_symlinks": true,
-			"path": "/home/pierre/Projects/PyBayes"
+			"path": "h:ome\\pierre\\Projects\\PyBayes"
+		},
+		{
+			"follow_symlinks": true,
+			"path": "C:\\Users\\pvvilleneuve\\Projects\\pykalman\\pykalman"
 		}
 	]
 }
