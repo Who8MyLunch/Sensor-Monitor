@@ -7,7 +7,7 @@ import numpy as np
 
 import data_store
 import arrow
-import pybayes
+import pykalman
 
 
 def dataframe_seconds(df, t0=0.):
@@ -33,17 +33,17 @@ def dataframe_seconds(df, t0=0.):
 # data_store.update()
 df = data_store.load()
 
-# pins = np.unique(df.Pin.values)
 
 # Work/test data
+# pins = np.unique(df.Pin.values)
 p = 25
 mask_pins = df.Pin == p
 df_work = df[mask_pins]['2013-10-11':'2013-10-12']
 
-# Initialize model using leading data.
-fmt = 'YYYY-MM-DD HH:mm:ss'
+# Initialize state using leading data.
 time_a, time_b = arrow.get(df_work.index[0]).span('hour')
 
+fmt = 'YYYY-MM-DD HH:mm:ss'
 df_init = df_work[time_a.format(fmt):time_b.format(fmt)]
 
 seconds = dataframe_seconds(df_init)
@@ -75,6 +75,10 @@ value_std = np.std(values)
 state_avg = np.asarray([rate_avg, value_avg])
 state_cov = np.asarray([[rate_std, 0.0],
                         [0.0, value_std]])
+
+
+
+
 
 
 state_pdf = pybayes.GaussPdf(state_avg, state_cov)
