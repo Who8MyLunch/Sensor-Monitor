@@ -39,7 +39,7 @@ def dataframe_seconds(df, t0=0):
     return seconds
 
 
-def linear_model(x, y, num_resample=100):
+def linear_model(x, y, num_resample=500):
     """
     Solve linear model, with bootstrapping to estimate parameter variances.
     Model: y = a0 + a1*x
@@ -84,7 +84,6 @@ p = 25
 mask_pins = df.Pin == p
 df_all = df[mask_pins]['2013-10-11':'2013-10-12']
 
-
 #################################################
 # Initialize model using leading data.
 t0 = index_to_seconds(df_all.index[0])
@@ -99,48 +98,90 @@ seconds_all = dataframe_seconds(df_all, t0)
 seconds_init = dataframe_seconds(df_init, t0)
 seconds_work = dataframe_seconds(df_work, t0)
 
-# Linear model fit.
-H0, H1, H0_std, H1_std = linear_model(seconds_init, df_init.Humidity.values, 500)
-T0, T1, T0_std, T1_std = linear_model(seconds_init, df_init.Temperature.values, 500)
+# Linear model fit for initial state.
+# H0, H1, H0_std, H1_std = linear_model(seconds_init, df_init.Humidity.values)
+# T0, T1, T0_std, T1_std = linear_model(seconds_init, df_init.Temperature.values)
 
-# Configure the Kalman filter.
-# state = [V, dV/dt]
+H0 = df_init.Humidity.values.mean()
+H1 = 0.0
+H0_std = 0.02
+H1_std = 1.e-5
 
-# Time step.
-dt = 10.  # sec.
+T0 = df_init.Temperature.values.mean()
+T1 = 0.0
+T0_std = 0.02
+T1_std = 1.e-6
 
-# Dimensions.
-d_state = 2
-d_obs = 1
+# Statistics for observation variances.
+H0_obs_std = 1.0  # np.std(df_init.Humidity.values)
+T0_obs_std = 0.5  # np.std(df_init.Temperature.values) * 10
 
-# Variances
-var_trans = 0.01**2   # 1% of either signal, T or RH.
-var_obs = H0_std**2
+# Initial data, assuming regular sampling.
+dt = (seconds_init.max() - seconds_init.min()) / (len(seconds_init) - 1.)
+
+# State vector.
+# state = [H, dH/dt, T, dT/dt]
 
 # Transition matrix and covariance.
-A_trans = np.asarray([[1., dt],
-                      [0., 1.]])
+A_trans = np.asarray([[1., dt, 0., 0.],
+                      [0., 1., 0., 0.],
+                      [0., 0., 1., dt],
+                      [0., 0., 0., 1.]])
 
-Q_trans_cov = np.eye(d_state) * var_trans
+Q_trans_cov = np.asarray([[H0_std**2, 0., 0., 0.],
+                          [0., H1_std**2, 0., 0.],
+                          [0., 0., T0_std**2, 0.],
+                          [0., 0., 0., T1_std**2]])
 
 # Observation matrix and covariance.
-C_obs = np.asarray([[1., 0.]])
+C_obs = np.asarray([[1., 0., 0., 0.],
+                    [0., 0., 1., 0.]])
 
-R_obs_cov = np.eye(d_obs) * var_obs
+R_obs_cov = np.asarray([[H0_obs_std**2, 0.],
+                        [0., T0_obs_std**2]])
 
 # Initial state parameters.
-state_init_avg = np.asarray([H0, H1])
+state_init_avg = np.asarray([H0, 0., T0, 0.])
 
-state_init_cov = np.asarray([[H0_std, 0.],
-                             [0., H1_std]])
+# state_init_cov = np.asarray([[H0_std**2, 0.],
+#                              [0., H1_std**2],
+#                              [T0_std**2, 0.],
+#                              [0., T1_std**2]])
+state_init_cov = np.eye(4)
 
-kf = pykalman.KalmanFilter(transition_matrices=A_trans,
-                           transition_covariance=Q_trans_cov,
-                           observation_matrices=C_obs,
-                           observation_covariance=R_obs_cov,
-                           initial_state_mean=state_init_avg,
-                           initial_state_covariance=state_init_cov)
+kf = pykalman.sqrt.BiermanKalmanFilter(transition_matrices=A_trans,
+                                       observation_matrices=C_obs,
+                                       transition_covariance=Q_trans_cov,
+                                       observation_covariance=R_obs_cov,
+                                       initial_state_mean=state_init_avg,
+                                       initial_state_covariance=state_init_cov)
 
+X_init = np.vstack((df_init.Humidity.values, df_init.Temperature.values)).T
+X_all = np.vstack((df_all.Humidity.values, df_all.Temperature.values)).T
+
+
+print(kf.observation_covariance)
+print(kf.transition_covariance)
+
+em_vars = ['initial_state_covariance', 'initial_state_mean',
+           'transition_covariance', 'observation_covariance']
+
+kf = kf.em(X_init, em_vars=em_vars)
+kf.observation_covariance[0, 0] = R_obs_cov[0, 0]
+kf.observation_covariance[1, 1] = R_obs_cov[1, 1]
+
+print()
+print(kf.observation_covariance)
+print(kf.transition_covariance)
+
+states_mean2, states_cov2 = kf.filter(X_all)
+
+
+# Loop over data observations.
+
+# Kalman filter online processing.
+# means, covariances = kf.filter(measurements)
+# next_mean, next_covariance = kf.filter_update(means[-1], covariances[-1], new_measurement)
 
 # Display.
 if True:
@@ -157,15 +198,26 @@ if True:
     y = H0 + H1*s
     ax.plot(x, y, label='H fit', color='orange')
 
+    # ax.plot(df_init.index, states_mean[:, 0], label='H 1', color='purple')
+    ax.plot(df_all.index, states_mean2[:, 0], label='H 2', color='green', linewidth=2)
+
     # Temperature.
     ax.plot(df_all.index, df_all.Temperature, label='T {:02d}'.format(p), color='red')
 
     y = T0 + T1*s
     ax.plot(x, y, label='T fit', color='green')
 
+    # ax.plot(df_init.index, states_mean[:, 2], label='T 1', color='purple')
+    ax.plot(df_all.index, states_mean2[:, 2], label='T 2', color='green', linewidth=2)
     ax.set_xlabel('Date / Time')
     ax.set_ylabel('Data')
-    ax.legend(loc=2)
+
+    # v0, v1 = ax.get_xlim()
+    # v2 = v0 + 1.5/24.
+    # ax.set_xlim(v0, v2)
+    # ax.set_ylim(50.5, 51.5)
+
+    ax.legend(loc=3)
 
     plt.draw()
 

@@ -8,6 +8,8 @@ import Queue
 import random
 
 import numpy as np
+import pykalman
+import pykalman.sqrt
 
 import dht22
 import utility

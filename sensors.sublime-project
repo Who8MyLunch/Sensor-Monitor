@@ -4,18 +4,6 @@
 		{
 			"follow_symlinks": true,
 			"path": "who8myrpi"
-		},
-		{
-			"follow_symlinks": true,
-			"path": "h:ome\\pierre\\Projects\\Who8MyGoogle\\who8mygoogle\\fusion_tables"
-		},
-		{
-			"follow_symlinks": true,
-			"path": "h:ome\\pierre\\Projects\\PyBayes"
-		},
-		{
-			"follow_symlinks": true,
-			"path": "C:\\Users\\pvvilleneuve\\Projects\\pykalman\\pykalman"
 		}
 	]
 }
