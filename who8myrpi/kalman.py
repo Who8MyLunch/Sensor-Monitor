@@ -156,12 +156,13 @@ state_init_avg = np.asarray([H0, 0., T0, 0.])
 #                              [0., T1_std**2]])
 state_init_cov = np.eye(4)
 
-kf = pykalman.sqrt.BiermanKalmanFilter(transition_matrices=A_trans,
-                                       observation_matrices=C_obs,
-                                       transition_covariance=Q_trans_cov,
-                                       observation_covariance=R_obs_cov,
-                                       initial_state_mean=state_init_avg,
-                                       initial_state_covariance=state_init_cov)
+# kf = pykalman.sqrt.BiermanKalmanFilter(transition_matrices=A_trans,
+kf = pykalman.KalmanFilter(transition_matrices=A_trans,
+                           observation_matrices=C_obs,
+                           transition_covariance=Q_trans_cov,
+                           observation_covariance=R_obs_cov,
+                           initial_state_mean=state_init_avg,
+                           initial_state_covariance=state_init_cov)
 
 X_init = np.vstack((df_init.Humidity.values, df_init.Temperature.values)).T
 X_all = np.vstack((df_all.Humidity.values, df_all.Temperature.values)).T
@@ -174,8 +175,8 @@ em_vars = ['initial_state_covariance', 'initial_state_mean',
            'transition_covariance', 'observation_covariance']
 
 kf = kf.em(X_init, em_vars=em_vars)
-kf.observation_covariance[0, 0] = R_obs_cov[0, 0]
-kf.observation_covariance[1, 1] = R_obs_cov[1, 1]
+# kf.observation_covariance[0, 0] = R_obs_cov[0, 0]
+# kf.observation_covariance[1, 1] = R_obs_cov[1, 1]
 
 print()
 print(kf.observation_covariance)
@@ -199,7 +200,12 @@ for k in range(df_all.shape[0]):
     T_k = df_all.Temperature[k]
     H_k = df_all.Humidity[k]
 
-    X_k = np.asarray([H_k, T_k])
+    X_k = np.asarray([H_k, T_k]).reshape(1, 2)
+
+    if k > 5:
+        ll = kf.loglikelihood(X_k)
+        print(ll)
+        1/0
 
     state_avg_k, state_cov_k = kf.filter_update(state_avg_km1, state_cov_km1,
                                                 observation=X_k,
@@ -212,6 +218,7 @@ for k in range(df_all.shape[0]):
     state_cov_km1 = state_cov_k[0]
 
     H_filtered.append(state_avg_k[0])
+
 
 # Display.
 if True:
