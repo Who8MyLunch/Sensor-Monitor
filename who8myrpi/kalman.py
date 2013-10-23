@@ -123,10 +123,17 @@ dt = (seconds_init.max() - seconds_init.min()) / (len(seconds_init) - 1.)
 # state = [H, dH/dt, T, dT/dt]
 
 # Transition matrix and covariance.
-A_trans = np.asarray([[1., dt, 0., 0.],
-                      [0., 1., 0., 0.],
-                      [0., 0., 1., dt],
-                      [0., 0., 0., 1.]])
+g = lambda x: x**2
+
+A_trans_func = lambda dt: np.asarray([[1., dt, 0., 0.],
+                                      [0., 1., 0., 0.],
+                                      [0., 0., 1., dt],
+                                      [0., 0., 0., 1.]])
+A_trans = A_trans_func(dt)
+# A_trans = np.asarray([[1., dt, 0., 0.],
+#                       [0., 1., 0., 0.],
+#                       [0., 0., 1., dt],
+#                       [0., 0., 0., 1.]])
 
 Q_trans_cov = np.asarray([[H0_std**2, 0., 0., 0.],
                           [0., H1_std**2, 0., 0.],
@@ -174,14 +181,37 @@ print()
 print(kf.observation_covariance)
 print(kf.transition_covariance)
 
-states_mean2, states_cov2 = kf.filter(X_all)
+states_avg, states_cov = kf.filter(X_init)
+t_km1 = seconds_init.max()
 
+state_avg_km1 = states_avg[-1]
+state_cov_km1 = states_cov[-1]
 
 # Loop over data observations.
+H_filtered = []
+for k in range(df_all.shape[0]):
 
-# Kalman filter online processing.
-# means, covariances = kf.filter(measurements)
-# next_mean, next_covariance = kf.filter_update(means[-1], covariances[-1], new_measurement)
+    ix_k = df_all.index[k]
+    t_k = index_to_seconds(ix_k, t0)
+    dt = t_k - t_km1
+    A_trans = A_trans_func(dt)
+
+    T_k = df_all.Temperature[k]
+    H_k = df_all.Humidity[k]
+
+    X_k = np.asarray([H_k, T_k])
+
+    state_avg_k, state_cov_k = kf.filter_update(state_avg_km1, state_cov_km1,
+                                                observation=X_k,
+                                                transition_matrix=A_trans)
+
+    # print(k, dt, state_avg_k[0], state_avg_k[2])
+
+    t_km1 = t_k
+    state_avg_km1 = state_avg_k
+    state_cov_km1 = state_cov_k[0]
+
+    H_filtered.append(state_avg_k[0])
 
 # Display.
 if True:
@@ -193,29 +223,19 @@ if True:
     # Humidity.
     ax.plot(df_all.index, df_all.Humidity, label='H {:02d}'.format(p), color='blue')
 
-    s = dataframe_seconds(df_init, t0)[[0, -1]]
-    x = df_init.index[[0, -1]]
-    y = H0 + H1*s
-    ax.plot(x, y, label='H fit', color='orange')
-
-    # ax.plot(df_init.index, states_mean[:, 0], label='H 1', color='purple')
-    ax.plot(df_all.index, states_mean2[:, 0], label='H 2', color='green', linewidth=2)
+    ax.plot(df_all.index, H_filtered, label='H', color='purple')
+    # ax.plot(df_all.index, states_mean2[:, 0], label='H 2', color='green', linewidth=2)
 
     # Temperature.
     ax.plot(df_all.index, df_all.Temperature, label='T {:02d}'.format(p), color='red')
 
-    y = T0 + T1*s
-    ax.plot(x, y, label='T fit', color='green')
+    # y = T0 + T1*s
+    # ax.plot(x, y, label='T fit', color='green')
 
     # ax.plot(df_init.index, states_mean[:, 2], label='T 1', color='purple')
-    ax.plot(df_all.index, states_mean2[:, 2], label='T 2', color='green', linewidth=2)
+    # ax.plot(df_all.index, states_mean2[:, 2], label='T 2', color='green', linewidth=2)
     ax.set_xlabel('Date / Time')
     ax.set_ylabel('Data')
-
-    # v0, v1 = ax.get_xlim()
-    # v2 = v0 + 1.5/24.
-    # ax.set_xlim(v0, v2)
-    # ax.set_ylim(50.5, 51.5)
 
     ax.legend(loc=3)
 
