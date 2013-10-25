@@ -7,7 +7,7 @@ import numpy as np
 
 import data_store
 import arrow
-
+import statsmodels
 import pykalman
 import pykalman.sqrt
 
