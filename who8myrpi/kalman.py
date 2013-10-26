@@ -7,7 +7,7 @@ import numpy as np
 
 import data_store
 import arrow
-import statsmodels
+import normal
 import pykalman
 import pykalman.sqrt
 
@@ -203,6 +203,7 @@ for k in range(df_all.shape[0]):
     X_k = np.asarray([H_k, T_k]).reshape(1, 2)
 
     if k > 5:
+        normal.mvn_ll()
         ll = kf.loglikelihood(X_k)
         print(ll)
         1/0
