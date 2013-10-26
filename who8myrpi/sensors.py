@@ -13,6 +13,7 @@ import pykalman.sqrt
 
 import dht22
 import utility
+import gen_multi
 
 #################################################
 # Helper functions.

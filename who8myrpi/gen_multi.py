@@ -31,6 +31,7 @@ def gen_multiplex(gen_list):
         for t in thread_list:
             t.join()
 
+        # Indcate that the show is over.
         item_q.put(StopIteration)
 
     # Start up all the threads with their own queues.
