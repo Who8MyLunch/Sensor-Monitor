@@ -80,9 +80,15 @@ df = data_store.load()
 
 # Work/test data
 # pins = np.unique(df.Pin.values)
+# print(pins)
+# [ 4 17 18 21 23 24 25]
+
 p = 25
+
 mask_pins = df.Pin == p
 df_all = df[mask_pins]['2013-10-11':'2013-10-12']
+
+thresh_log_like = -5.
 
 #################################################
 # Initialize model using leading data.
@@ -98,22 +104,19 @@ seconds_all = dataframe_seconds(df_all, t0)
 seconds_init = dataframe_seconds(df_init, t0)
 seconds_work = dataframe_seconds(df_work, t0)
 
-# Linear model fit for initial state.
-# H0, H1, H0_std, H1_std = linear_model(seconds_init, df_init.Humidity.values)
-# T0, T1, T0_std, T1_std = linear_model(seconds_init, df_init.Temperature.values)
-
+# Model transition statistics.
 H0 = df_init.Humidity.values.mean()
 H1 = 0.0
 H0_std = 0.02
-H1_std = 1.e-5
+H1_std = 1.e-4
 
 T0 = df_init.Temperature.values.mean()
 T1 = 0.0
 T0_std = 0.02
-T1_std = 1.e-6
+T1_std = 1.e-5
 
-# Statistics for observation variances.
-H0_obs_std = 1.0  # np.std(df_init.Humidity.values)
+# Observation statistics.
+H0_obs_std = 2.0  # np.std(df_init.Humidity.values)
 T0_obs_std = 0.5  # np.std(df_init.Temperature.values) * 10
 
 # Initial data, assuming regular sampling.
@@ -130,22 +133,18 @@ A_trans_func = lambda dt: np.asarray([[1., dt, 0., 0.],
                                       [0., 0., 1., dt],
                                       [0., 0., 0., 1.]])
 A_trans = A_trans_func(dt)
-# A_trans = np.asarray([[1., dt, 0., 0.],
-#                       [0., 1., 0., 0.],
-#                       [0., 0., 1., dt],
-#                       [0., 0., 0., 1.]])
 
-Q_trans_cov = np.asarray([[H0_std**2, 0., 0., 0.],
-                          [0., H1_std**2, 0., 0.],
-                          [0., 0., T0_std**2, 0.],
-                          [0., 0., 0., T1_std**2]])
+transition_covariance = np.asarray([[H0_std**2, 0., 0., 0.],
+                                    [0., H1_std**2, 0., 0.],
+                                    [0., 0., T0_std**2, 0.],
+                                    [0., 0., 0., T1_std**2]])
 
 # Observation matrix and covariance.
-C_obs = np.asarray([[1., 0., 0., 0.],
-                    [0., 0., 1., 0.]])
+observation_matrix = np.asarray([[1., 0., 0., 0.],
+                                 [0., 0., 1., 0.]])
 
-R_obs_cov = np.asarray([[H0_obs_std**2, 0.],
-                        [0., T0_obs_std**2]])
+observation_covariance = np.asarray([[H0_obs_std**2, 0.],
+                                     [0., T0_obs_std**2]])
 
 # Initial state parameters.
 state_init_avg = np.asarray([H0, 0., T0, 0.])
@@ -154,20 +153,20 @@ state_init_avg = np.asarray([H0, 0., T0, 0.])
 #                              [0., H1_std**2],
 #                              [T0_std**2, 0.],
 #                              [0., T1_std**2]])
-state_init_cov = np.eye(4)
+state_init_cov = np.identity(4)
 
 # kf = pykalman.sqrt.BiermanKalmanFilter(transition_matrices=A_trans,
 kf = pykalman.KalmanFilter(transition_matrices=A_trans,
-                           observation_matrices=C_obs,
-                           transition_covariance=Q_trans_cov,
-                           observation_covariance=R_obs_cov,
+                           observation_matrices=observation_matrix,
+                           transition_covariance=transition_covariance,
+                           observation_covariance=observation_covariance,
                            initial_state_mean=state_init_avg,
                            initial_state_covariance=state_init_cov)
 
 X_init = np.vstack((df_init.Humidity.values, df_init.Temperature.values)).T
 X_all = np.vstack((df_all.Humidity.values, df_all.Temperature.values)).T
 
-
+print()
 print(kf.observation_covariance)
 print(kf.transition_covariance)
 
@@ -175,21 +174,24 @@ em_vars = ['initial_state_covariance', 'initial_state_mean',
            'transition_covariance', 'observation_covariance']
 
 kf = kf.em(X_init, em_vars=em_vars)
-# kf.observation_covariance[0, 0] = R_obs_cov[0, 0]
-# kf.observation_covariance[1, 1] = R_obs_cov[1, 1]
+kf.observation_covariance[0, 0] = observation_covariance[0, 0]
+kf.observation_covariance[1, 1] = observation_covariance[1, 1]
 
 print()
 print(kf.observation_covariance)
 print(kf.transition_covariance)
 
 states_avg, states_cov = kf.filter(X_init)
-t_km1 = seconds_init.max()
+t_km1 = seconds_all.min() - dt
 
 state_avg_km1 = states_avg[-1]
 state_cov_km1 = states_cov[-1]
 
 # Loop over data observations.
 H_filtered = []
+T_filtered = []
+values = []
+count_bad = 0
 for k in range(df_all.shape[0]):
 
     ix_k = df_all.index[k]
@@ -200,26 +202,37 @@ for k in range(df_all.shape[0]):
     T_k = df_all.Temperature[k]
     H_k = df_all.Humidity[k]
 
-    X_k = np.asarray([H_k, T_k]).reshape(1, 2)
-
-    if k > 5:
-        normal.mvn_ll()
-        ll = kf.loglikelihood(X_k)
-        print(ll)
-        1/0
+    X_k = np.asarray([H_k, T_k])
 
     state_avg_k, state_cov_k = kf.filter_update(state_avg_km1, state_cov_km1,
                                                 observation=X_k,
                                                 transition_matrix=A_trans)
 
-    # print(k, dt, state_avg_k[0], state_avg_k[2])
+    # Test this update for reasonableness.
+    obs_cov = kf.observation_covariance
+    obs_pred = state_avg_k
+
+    log_like, det = normal.mvn_ll(X_k, obs_pred[[0, 2]], obs_cov)
+    values.append(log_like)
+
+    if log_like < thresh_log_like:
+        # Not good.  Redo while ignoring this observation.
+        count_bad += 1
+        state_avg_k, state_cov_k = kf.filter_update(state_avg_km1, state_cov_km1,
+                                                    observation=None,
+                                                    transition_matrix=A_trans)
 
     t_km1 = t_k
     state_avg_km1 = state_avg_k
-    state_cov_km1 = state_cov_k[0]
+    state_cov_km1 = state_cov_k
 
     H_filtered.append(state_avg_k[0])
+    T_filtered.append(state_avg_k[2])
 
+values = np.asarray(values)
+
+
+print(count_bad)
 
 # Display.
 if True:
@@ -234,11 +247,12 @@ if True:
     ax.plot(df_all.index, H_filtered, label='H', color='purple')
     # ax.plot(df_all.index, states_mean2[:, 0], label='H 2', color='green', linewidth=2)
 
+    ax.plot(df_all.index, values+50, color='grey', linewidth=0.2)
+    ax.plot(df_all.index, values, color='grey', linewidth=0.5)
+
     # Temperature.
     ax.plot(df_all.index, df_all.Temperature, label='T {:02d}'.format(p), color='red')
-
-    # y = T0 + T1*s
-    # ax.plot(x, y, label='T fit', color='green')
+    ax.plot(df_all.index, T_filtered, label='T', color='purple')
 
     # ax.plot(df_init.index, states_mean[:, 2], label='T 1', color='purple')
     # ax.plot(df_all.index, states_mean2[:, 2], label='T 2', color='green', linewidth=2)

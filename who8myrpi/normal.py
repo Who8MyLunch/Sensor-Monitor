@@ -28,14 +28,16 @@ def mvn_ll(x, mu, cov):
     if x.ndim == 1:
         N = 1
         P = x.size
-        x.shape = N, P
+
+        x = x.copy().reshape(N, P)
+        # x.shape = N, P
     elif x.ndim == 2:
         N, P = x.shape
     else:
         raise ValueError('Invalid data shape.')
 
     if mu.size != P:
-        raise ValueError('Size of mu must match observation: {:s}'.format(mu.size))
+        raise ValueError('Size of mu must match that of observation: {:s}'.format(mu.size))
 
     if cov.ndim != 2:
         raise ValueError('Covariance matrix must be 2D.')
@@ -54,10 +56,10 @@ def mvn_ll(x, mu, cov):
 
     part_3 = [(x[i] - mu).T.dot(cov_inv).dot(x[i] - mu) for i in range(N)]
 
-    # Put it together, flip sign so output is positive quantity.
-    log_likelihood = part_1 + part_2 + 0.5*np.sum(part_3)
+    # Put it together.
+    log_likelihood = -part_1 - part_2 - 0.5*np.sum(part_3)
 
-    return log_likelihood
+    return log_likelihood, part_2
 
 #################################################
 
@@ -76,8 +78,9 @@ if __name__ == '__main__':
 
     # Observation.
     x = np.asarray([0, 0, 0, 0.])
-
-    # Evaluate.
     ll = mvn_ll(x, mu, cov)
+    print(ll)
 
+    x = np.asarray([1., 1., 1., 1.])
+    ll = mvn_ll(x, mu, cov)
     print(ll)
