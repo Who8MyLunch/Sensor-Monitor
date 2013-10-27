@@ -32,7 +32,7 @@ class Test_Basic_Read_Some_Data(unittest.TestCase):
             sensor_monitor.dht22._digitalWrite(pin_power, True)
             time.sleep(5)
 
-        # seconds.
+        # Time in seconds.
         time_max = 60.
         time_wait = 5.
 

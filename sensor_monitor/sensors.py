@@ -22,24 +22,7 @@ def path_to_module():
     p = os.path.dirname(os.path.abspath(__file__))
     return p
 
-
-def c2f(C):
-    """Convert Celcius to Fahrenheit.
-    """
-    F = C * 9./5. + 32.
-    return F
-
-
-def f2c(F):
-    """Convert Fahrenheit to Celcius.
-    """
-    C = (F - 32.) * 5./9.
-    return C
-
 #################################################
-
-_time_wait_default = 8.
-_time_history_default = 10*60
 
 
 class Channel_New(threading.Thread):
@@ -64,22 +47,29 @@ class Channel_New(threading.Thread):
         if self.verbose:
             print('Channel start: %d' % self.pin)
 
+        time_last_good = time.time()
         self.keep_running = True
 
         while self.keep_running:
             # Record some data.  Keyword delay specified in microseconds.
-            RH, Tc = dht22.read_dht22_single(self.pin, delay=1)
+            RH, Tf = dht22.read_dht22_single(self.pin, delay=1)
             time_read = time.time()
 
             if RH:
                 # Reading is good.
-                Tf = c2f(Tc)
+                time_last_good = time_read
                 yield time_read, RH, Tf
 
             else:
                 # Reading is not valid.  Do nothing for now.
-                # TODO: add a check for case where too much time passes since last good value.
-                pass
+                if time.time() - time_last_good > 100.:
+                    # Problem.  Stop looping.
+                    self.keep_running = False
+
+                    if self.verbose:
+                        print('Channel long time no data!: %d' % self.pin)
+
+                    break
 
             # Wait a bit before attempting another measurement.
             self.sleep(self.time_wait)
@@ -103,6 +93,10 @@ class Channel_New(threading.Thread):
 
 
 #################################################
+
+
+_time_wait_default = 8.
+_time_history_default = 10*60
 
 
 class Channel(threading.Thread):
@@ -149,7 +143,7 @@ class Channel(threading.Thread):
 
             if self.record_data:
                 # Record some data.  delay in microseconds.
-                RH, Tc = dht22.read_dht22_single(self.pin, delay=1)
+                RH, Tf = dht22.read_dht22_single(self.pin, delay=1)
                 time_read = time.time()
 
                 if not RH:
@@ -160,7 +154,7 @@ class Channel(threading.Thread):
                     info = {'kind': 'sample',
                             'pin': self.pin,
                             'RH': float(np.round(RH, decimals=2)),
-                            'Tf': float(np.round(c2f(Tc), decimals=2)),
+                            'Tf': float(np.round(Tf, decimals=2)),
                             'seconds': float(np.round(time_read, decimals=2))}
 
                     self.add_data(info)

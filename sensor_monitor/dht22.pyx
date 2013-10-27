@@ -235,8 +235,6 @@ def read_bits(int pin_data, int delay=1):
     delay = wait time between polling sensor, microseconds.
     """
 
-    # SetupGpio()
-
     # Storage.
     cdef int num_data = 41
     data = np.zeros(num_data, dtype=np.int)
@@ -323,6 +321,20 @@ def bits_to_bytes(bits):
     return byte_1, byte_2, byte_3, byte_4, ok
 
 
+def c2f(C):
+    """Convert Celcius to Fahrenheit.
+    """
+    F = C * 9./5. + 32.
+    return F
+
+
+def f2c(F):
+    """Convert Fahrenheit to Celcius.
+    """
+    C = (F - 32.) * 5./9.
+    return C
+
+
 def read_dht22_single(pin_data, delay=1):
     """
     Read temperature and humidity data from sensor.
@@ -351,18 +363,21 @@ def read_dht22_single(pin_data, delay=1):
             # Checksum is OK.
             RH = float((np.left_shift(byte_1, 8) + byte_2) / 10.)
             Tc = float((np.left_shift(byte_3, 8) + byte_4) / 10.)
+
+            # Convert Celcius to Fahrenheit.
+            Tf = c2f(C)
         else:
             # Problem!
             msg = 'Fail checksum'
-            RH, Tc = None, msg
+            RH, Tf = None, msg
 
     else:
         # Problem.
         msg = 'Fail len(bits) != 40 [%d]' % (len(bits))
-        RH, Tc = None, msg
+        RH, Tf = None, msg
 
     # Done.
-    return RH, Tc
+    return RH, Tf
 
 #################################################
 
