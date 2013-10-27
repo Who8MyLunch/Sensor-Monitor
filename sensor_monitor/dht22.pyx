@@ -57,10 +57,10 @@ cdef int PWM_MODE_BAL = 1
 
 def _pinMode(int pin, int mode):
     pinMode(pin, mode)
-    
+
 def _digitalRead(int pin):
     return digitalRead(pin)
-    
+
 def _digitalWrite(int pin, int value):
     digitalWrite(pin, value)
 
@@ -75,7 +75,7 @@ _PUD_OFF = PUD_OFF
 _PUD_DOWN = PUD_DOWN
 _PUD_UP = PUD_UP
 
- 
+
 _GPIO_IS_SETUP = False
 def SetupGpio():
     """
@@ -85,12 +85,12 @@ def SetupGpio():
         val = wiringPiSetupGpio()
         if val < 0:
             raise Exception('Problem seting up WiringPI.')
-            
+
         globals()['_GPIO_IS_SETUP'] = True
 
     # Done.
-    
-    
+
+
 cdef int send_start(int pin_data) nogil:
     """
     Send start signal to sensor.
@@ -118,9 +118,9 @@ cdef int send_start(int pin_data) nogil:
     # Done.
     return 0
 
-#########################
-    
-    
+#################################################
+
+
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def read_raw(int pin_data, int num_data=4000, int delay=1):
@@ -130,7 +130,7 @@ def read_raw(int pin_data, int num_data=4000, int delay=1):
     """
 
     SetupGpio()
-    
+
     # Setup.
     data_signal = np.zeros(num_data, dtype=np.int)
     cdef int [:] data_signal_view = data_signal
@@ -148,7 +148,7 @@ def read_raw(int pin_data, int num_data=4000, int delay=1):
     with nogil:
         while count < num_data:
             delayMicroseconds(delay)
-            
+
             value_sensor = digitalRead(pin_data)
 
             data_signal_view[count] = value_sensor
@@ -174,7 +174,7 @@ def read_raw(int pin_data, int num_data=4000, int delay=1):
     # Finish.
     info = {'sample_time': sample_time,
             'count': count}
-            
+
     # Done.
     return data_signal, info
 
@@ -194,7 +194,7 @@ cdef int read_single_bit(int pin_data, int delay) nogil:
     cdef int diff = 0
 
     delayMicroseconds(delay)
-    
+
     # While not ready.
     while digitalRead(pin_data) == HIGH:
         delayMicroseconds(delay)
@@ -238,7 +238,7 @@ def read_bits(int pin_data, int delay=1):
     """
 
     SetupGpio()
-        
+
     # Storage.
     cdef int num_data = 41
     data = np.zeros(num_data, dtype=np.int)
@@ -250,7 +250,7 @@ def read_bits(int pin_data, int delay=1):
     with nogil:
         # Send start signal to the sensor.
         send_start(pin_data)
-    
+
         # Read interpreted data bits.
         while count <= num_data:
             bit = read_single_bit(pin_data, delay)
@@ -260,12 +260,12 @@ def read_bits(int pin_data, int delay=1):
 
             data_view[count] = bit
             count += 1
-        
+
     if count == 0:
         # raise Exception('Problem reading data from sensor.  Count == 0.  pin_data: %d, bit: %d' % (pin_data, bit) )
         msg = 'Problem reading data from sensor.  count: 0, pin: %d, bit: %d' % (pin_data, bit)
         return None, msg
-        
+
     # Limit to just the data bits recorded.
     data = data[:count]
     first = data[0]
