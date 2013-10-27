@@ -8,15 +8,14 @@ import Queue
 import random
 
 import numpy as np
-import pykalman
-import pykalman.sqrt
+# import pykalman
+# import pykalman.sqrt
 
 import dht22
 import utility
-import gen_multi
+# import gen_multi
 
 #################################################
-# Helper functions.
 
 
 def path_to_module():
@@ -25,126 +24,85 @@ def path_to_module():
 
 
 def c2f(C):
-    """
-    Convert Celcius to Fahrenheit.
+    """Convert Celcius to Fahrenheit.
     """
     F = C * 9./5. + 32.
     return F
 
 
 def f2c(F):
-    """
-    Convert Fahrenheit to Celcius.
+    """Convert Fahrenheit to Celcius.
     """
     C = (F - 32.) * 5./9.
     return C
 
-
 #################################################
-# Data record.
-
-
-def compute_checksum(byte_1, byte_2, byte_3, byte_4, byte_5):
-    """
-    Compute checksum.
-    Return True or false.
-    """
-    val_sum = byte_1 + byte_2 + byte_3 + byte_4
-    val_check = val_sum & 255
-
-    if val_check == byte_5:
-        return True
-    else:
-        return False
-
-
-def bits_to_bytes(bits):
-    """
-    Assemble sequence of bits into valid byte data.
-    Test checksum.
-    """
-    if len(bits) != 40:
-        raise ValueError('list of bits not equal to 40: %d' % len(bits))
-
-    byte_1_str = ''
-    for b in bits[0:8]:
-        byte_1_str += str(b)
-    byte_1 = np.int(byte_1_str, 2)
-
-    byte_2_str = ''
-    for b in bits[8:16]:
-        byte_2_str += str(b)
-    byte_2 = np.int(byte_2_str, 2)
-
-    byte_3_str = ''
-    for b in bits[16:24]:
-        byte_3_str += str(b)
-    byte_3 = np.int(byte_3_str, 2)
-
-    byte_4_str = ''
-    for b in bits[24:32]:
-        byte_4_str += str(b)
-    byte_4 = np.int(byte_4_str, 2)
-
-    byte_5_str = ''
-    for b in bits[32:40]:
-        byte_5_str += str(b)
-    byte_5 = np.int(byte_5_str, 2)
-
-    # Test checksum.
-    ok = compute_checksum(byte_1, byte_2, byte_3, byte_4, byte_5)
-
-    # Done.
-    return byte_1, byte_2, byte_3, byte_4, ok
-
-
-def read_dht22_single(pin_data, delay=1):
-    """
-    Read temperature and humidity data from sensor.
-    Just a single sample.  Return None if checksum fails or any other problem.
-    """
-
-    time.sleep(0.01)
-
-    # Read some bits.
-    first, bits = dht22.read_bits(pin_data, delay=delay)
-
-    if first is None:
-        msg = bits
-        return None, msg
-
-    if first != 1:
-        msg = 'Fail first != 1'
-        return None, msg
-
-    # Convert recorded bits into data bytes.
-    if len(bits) == 40:
-        # Total number of bits is Ok.
-        byte_1, byte_2, byte_3, byte_4, ok = bits_to_bytes(bits)
-
-        if ok:
-            # Checksum is OK.
-            RH = float((np.left_shift(byte_1, 8) + byte_2) / 10.)
-            Tc = float((np.left_shift(byte_3, 8) + byte_4) / 10.)
-        else:
-            # Problem!
-            msg = 'Fail checksum'
-            RH, Tc = None, msg
-
-    else:
-        # Problem.
-        msg = 'Fail len(bits) != 40 [%d]' % (len(bits))
-        RH, Tc = None, msg
-
-    # Done.
-    return RH, Tc
-
-
-#################################################
-
 
 _time_wait_default = 8.
 _time_history_default = 10*60
+
+
+class Channel_New(threading.Thread):
+    def __init__(self, pin, time_wait=5.0, verbose=False):
+        """Read data from specified DHT22 sensor on specified GPIO pin.
+
+        Parameters
+        ----------
+        pin : GPIO data pin
+
+        time_wait : number of seconds between polling sensor for new data.
+
+        """
+        self.verbose = verbose
+        self.pin = pin
+        self.time_wait = time_wait
+        self.keep_running = False
+
+    def start(self):
+        """Start the generator main loop.  Yield sequence of tuple (time_read, RH, Tf).
+        """
+        if self.verbose:
+            print('Channel start: %d' % self.pin)
+
+        self.keep_running = True
+
+        while self.keep_running:
+            # Record some data.  Keyword delay specified in microseconds.
+            RH, Tc = dht22.read_dht22_single(self.pin, delay=1)
+            time_read = time.time()
+
+            if RH:
+                # Reading is good.
+                Tf = c2f(Tc)
+                yield time_read, RH, Tf
+
+            else:
+                # Reading is not valid.  Do nothing for now.
+                # TODO: add a check for case where too much time passes since last good value.
+                pass
+
+            # Wait a bit before attempting another measurement.
+            self.sleep(self.time_wait)
+
+        if self.verbose:
+            print('Channel exit: %d' % self.pin)
+
+    def sleep(self, time_sleep):
+        """Sleep for specified interval.  Check for instructions to terminate.
+        """
+        dt = 0.1
+        time_zero = time.time()
+
+        while (time.time() - time_zero < time_sleep) and self.keep_running:
+            time.sleep(dt)
+
+    def stop(self):
+        """Shut down.
+        """
+        self.keep_running = False
+
+
+#################################################
 
 
 class Channel(threading.Thread):
@@ -191,7 +149,7 @@ class Channel(threading.Thread):
 
             if self.record_data:
                 # Record some data.  delay in microseconds.
-                RH, Tc = read_dht22_single(self.pin, delay=1)
+                RH, Tc = dht22.read_dht22_single(self.pin, delay=1)
                 time_read = time.time()
 
                 if not RH:
@@ -488,8 +446,7 @@ def data_collector(queue, time_interval=60):
 
 
 def example_single():
-    """
-    Read multiple data samples from single sensor over short period of time.
+    """Read multiple data samples from single sensor over short period of time.
     """
 
     pin = 25
@@ -500,7 +457,7 @@ def example_single():
     print('\npin: %d\n' % pin)
 
     for k in range(num_samples):
-        RH, Tc = read_dht22_single(pin)
+        RH, Tc = dht22.read_dht22_single(pin)
 
         if RH:
             print('RH: %.1f, Tc: %.1f' % (RH, Tc))

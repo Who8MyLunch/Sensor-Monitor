@@ -7,14 +7,14 @@ from setuptools.extension import Extension
 from Cython.Distutils import build_ext
 import platform
 
-entry_points = {'console_scripts': ['who8myrpi = who8myrpi.who8myrpi:main']}
+entry_points = {'console_scripts': ['who8myrpi = sensor_monitor.who8myrpi:main']}
 
 # Extensions for RaspberryPi.
 system, node, release, version, machine, processor = platform.uname()
 
 if 'arm' in machine:
     # WiriingPi source, includes, and options.
-    include_dirs = ['who8myrpi', '../WiringPi',
+    include_dirs = ['sensor_monitor', '../WiringPi',
                     distutils.sysconfig.get_python_inc(),
                     np.get_include()]
 
@@ -22,7 +22,7 @@ if 'arm' in machine:
     extra_link_args = []
 
     # GPIO extension.
-    source_files = ['who8myrpi/_gpio.pyx']
+    source_files = ['sensor_monitor/_gpio.pyx']
     libraries = ['wiringPi']
 
     ext_gpio = Extension('_gpio', source_files,
@@ -33,7 +33,7 @@ if 'arm' in machine:
                          extra_link_args=extra_link_args)
 
     # DHT22 sensor interface.
-    source_files = ['who8myrpi/dht22.pyx']
+    source_files = ['sensor_monitor/dht22.pyx']
 
     ext_dht22 = Extension('dht22', source_files,
                           language='c++',
@@ -43,7 +43,7 @@ if 'arm' in machine:
                           extra_link_args=extra_link_args)
 
     # Timing example.
-    source_files = ['who8myrpi/measure_timing.pyx']
+    source_files = ['sensor_monitor/measure_timing.pyx']
 
     ext_timing = Extension('measure_timing', source_files,
                            language='c++',

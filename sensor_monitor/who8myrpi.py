@@ -26,8 +26,7 @@ def path_to_module():
 
 
 def initialize_sensors(info_config):
-    """
-    Do all setup operations necesary to get ready prior to recording data.
+    """Do all setup operations necesary to get ready prior to recording data.
     """
 
     # Config data.
@@ -36,7 +35,7 @@ def initialize_sensors(info_config):
     pin_power = int(info_config['pin_power'])
 
     # Initialize GPIO.
-    dht22.SetupGpio()
+    # dht22.SetupGpio()
 
     # Power up the sensors.
     if pin_power:

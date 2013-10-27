@@ -12,4 +12,4 @@ import sys
 
 sys.path.insert(0, os.path.abspath('..'))
 
-import senspor_monitor
+import sensor_monitor

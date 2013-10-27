@@ -15,7 +15,7 @@ Starting with the inner-most layer:
     1. **Reader**:  A generator that yields data read from sensor using `read_dht22_single`.
     Potentially have methods to test that sensor is correctly connected.  Knows about waiting a
     predetermined amount of time between calls to request data.  Knows about initial wait time for
-    sensor to power up.
+    sensor to power up.  This could be based on what I currently have in the class `Channel`.
 
     2. **Filter**: A generator instanciated with a `Reader` object.  Receive 'raw' data from sensor
     `Reader` and process those signals through a Kalman filter.  Yield nice data to the next layer
