@@ -22,8 +22,6 @@ def path_to_module():
     p = os.path.dirname(os.path.abspath(__file__))
     return p
 
-#################################################
-
 
 class Channel_New(threading.Thread):
     def __init__(self, pin, time_wait=5.0, verbose=False):
