@@ -12,14 +12,15 @@ refactored classes.
 
 Starting with the inner-most layer:
 
-    1. **Reader**:  A generator that yields data read from sensor using `read_dht22_single`.
+    1. **Channel_Raw**:  A generator that yields data read from sensor using `read_dht22_single`.
     Potentially have methods to test that sensor is correctly connected.  Knows about waiting a
     predetermined amount of time between calls to request data.  Knows about initial wait time for
     sensor to power up.  This could be based on what I currently have in the class `Channel`.
 
-    2. **Filter**: A generator instanciated with a `Reader` object.  Receive 'raw' data from sensor
-    `Reader` and process those signals through a Kalman filter.  Yield nice data to the next layer
-    in the process.  Knows how to wait a bit at the beggining to collect sufficient data for
+    2. **Channel_Filter**: A generator instanciated with a `Reader` object.  Receive 'raw' data from
+    sensor `Reader` and process those signals through a Kalman filter.  Yield nice data to the next
+    layer in the process.  Knows how to wait a bit at the beggining to collect sufficient data for
     estimating data statistics.
 
-    3. **Collecter**: Initialized with a list of ready-to-go data generators.
+    3. **Collecter**: Initialized with a list of ready-to-go data generators.  See this cool module
+    I found: gen_multi.py.

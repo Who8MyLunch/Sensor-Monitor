@@ -84,7 +84,7 @@ def _setup_gpio():
     if not globals()['_GPIO_IS_SETUP']:
         val = wiringPiSetupGpio()
         if val < 0:
-            raise Exception('Problem seting up WiringPI.')
+            raise Exception('Problem seting up WiringPI.  Did you forget to run as root?')
 
         globals()['_GPIO_IS_SETUP'] = True
 
@@ -365,7 +365,7 @@ def read_dht22_single(pin_data, delay=1):
             Tc = float((np.left_shift(byte_3, 8) + byte_4) / 10.)
 
             # Convert Celcius to Fahrenheit.
-            Tf = c2f(C)
+            Tf = c2f(Tc)
         else:
             # Problem!
             msg = 'Fail checksum'

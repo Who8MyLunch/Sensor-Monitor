@@ -16,7 +16,7 @@ import dht22
 # import gen_multi
 
 
-class Channel_Base(abc):
+class Channel_Base(object):
     __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod
@@ -88,6 +88,61 @@ class Channel_DHT22_Raw(Channel_Base):
 
         self.pin = pin
         self.time_wait = time_wait
+
+    def run(self):
+        """Operate the generator main loop.  Yield sequence of tuples (time_read, RH, Tf).
+        """
+        time_last_good = time.time()
+        self.keep_running = True
+
+        while self.is_running:
+            # Record some data.  Keyword delay specified in microseconds.
+            RH, Tf = dht22.read_dht22_single(self.pin, delay=1)
+            time_read = time.time()
+
+            if RH:
+                # Reading is good.
+                time_last_good = time_read
+                yield time_read, RH, Tf
+
+            else:
+                # Reading is not valid.
+                if time.time() - time_last_good > 100.:
+                    # Problem.  Stop looping.
+                    self.stop()
+
+            # Wait a bit before attempting another measurement.
+            self.sleep(self.time_wait)
+
+#################################################
+
+class Channel_DHT22_Data_File(Channel_Base):
+
+    def __init__(self, fname_data, time_wait=5.0, **kwargs):
+        """Read raw DHT22 data from specified text file.
+
+        Parameters
+        ----------
+        fname_data : File containing data samples.
+
+        time_wait : number of seconds between polling sensor for new data.
+
+        """
+        super(Channel_DHT22_Data_File, self).__init__(**kwargs)
+
+        self.fname = fname_data
+        self.time_wait = time_wait
+
+    def load_data(self, fname=None):
+        """Load data samples from file.
+        """
+        if fname:
+            self.fname = fname
+
+        data = []
+        with open(fname, 'r') as fi:
+            for line in fi.readlines():
+
 
     def run(self):
         """Operate the generator main loop.  Yield sequence of tuples (time_read, RH, Tf).

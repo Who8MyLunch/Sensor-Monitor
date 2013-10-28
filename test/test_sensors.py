@@ -18,28 +18,34 @@ class Test_Channel(unittest.TestCase):
 
     def test_does_it_import(self):
         self.assertTrue(hasattr(sensor_monitor, 'sensors'))
-        self.assertTrue(hasattr(sensor_monitor.sensors, 'Channel'))
+        self.assertTrue(hasattr(sensor_monitor.sensors, 'Channel_Base'))
+        self.assertTrue(hasattr(sensor_monitor.sensors, 'Channel_DHT22_Raw'))
+        self.assertTrue(hasattr(sensor_monitor.sensors, 'Channel_DHT22_Kalman'))
+        self.assertTrue(hasattr(sensor_monitor.sensors.Channel_Base, 'start'))
+        self.assertTrue(hasattr(sensor_monitor.sensors.Channel_DHT22_Raw, 'run'))
+        self.assertTrue(hasattr(sensor_monitor.sensors.Channel_DHT22_Kalman, 'run'))
 
-    def test_channel_init(self):
+    def test_channel_raw_init(self):
         pin_data = 25
-        C = sensor_monitor.sensors.Channel_New(pin_data)
+        C = sensor_monitor.sensors.Channel_DHT22_Raw(pin_data)
         self.assertTrue(C.pin == pin_data)
 
-    def test_channel_start(self):
+    def test_channel_raw_start(self):
         pin_data = 25
-        C = sensor_monitor.sensors.Channel_New(pin_data, time_wait=3.)
-        gen = C.start()
+        C = sensor_monitor.sensors.Channel_DHT22_Raw(pin_data, time_wait=3.)
 
         count = 0
-        for t, RH, Tf in gen:
-            self.assertTrue(C.keep_running)
+        for t, RH, Tf in C.start():
+            self.assertFalse(C.is_finished)
+            self.assertTrue(C.is_running)
             self.assertTrue(t > 1382845189.9)
 
             count += 1
-            if count >= 2:
+            if count >= 1:
                 C.stop()
 
-        self.assertFalse(C.keep_running)
+        self.assertTrue(C.is_finished)
+        self.assertFalse(C.is_running)
 
 
 # Standalone.
