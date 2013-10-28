@@ -41,18 +41,6 @@ def run_cmd(cmd):
     return stdout, stderr
 
 
-# def network_reset():
-#     cmd = 'ifdown eth0'
-#     stdout, stderr = run_cmd(cmd)
-#     if stderr != '':
-#         print('utility.network_reset A: uh oh!')
-#     time.sleep(5)
-#     cmd = 'ifup eth0'
-#     stdout, stderr = run_cmd(cmd)
-#     if stderr != '':
-#         print('utility.network_reset B: uh oh!')
-
-
 # Timezones.
 tz_UTC = pytz.timezone('UTC')
 tz_LAX = pytz.timezone('America/Los_Angeles')
@@ -85,8 +73,7 @@ def datetime_seconds(seconds_utc, tz='US/Pacific'):
 
 
 def timestamp_seconds(year, month, day, hour=0, minute=0, seconds=0):
-    """
-    Compute UTC seconds from time/date specified in LAX timesone.
+    """Compute UTC seconds from time/date specified in LAX timesone.
     """
     dt_LAX = tz_LAX.localize(datetime.datetime(year, month, day, hour, minute, seconds, 0))
     dt_UTC = dt_LAX.astimezone(tz_UTC)
@@ -97,9 +84,12 @@ def timestamp_seconds(year, month, day, hour=0, minute=0, seconds=0):
 
 
 def pretty_timestamp(seconds_utc, fmt='%Y-%m-%d %H:%M:%S'):
-    """
-    Make a pretty timestamp from supplied UTC seconds.
-    default fmt = '%Y-%m-%d %H:%M:%S'
+    """Make a pretty timestamp from supplied UTC seconds.
+
+    Parameters
+    ----------
+    fmt : string, default value = '%Y-%m-%d %H:%M:%S'
+
     """
     dt_LAX = datetime_seconds(seconds_utc)
     time_stamp = dt_LAX.strftime(fmt)

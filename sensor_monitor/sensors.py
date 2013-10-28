@@ -1,30 +1,80 @@
 
 from __future__ import division, print_function, unicode_literals
 
-import os
 import time
-import threading
+# import threading
 import Queue
 import random
+import abc
 
-import numpy as np
+# import numpy as np
 # import pykalman
 # import pykalman.sqrt
 
 import dht22
-import utility
+# import utility
 # import gen_multi
+
+
+class Channel_Base(abc):
+    __metaclass__ = abc.ABCMeta
+
+    @abc.abstractmethod
+    def __init__(self, verbose=False):
+        self._keep_running = False
+        self._finished = False
+        self.verbose = verbose
+
+    def start(self):
+        """Start the main event loop by calling subclass's run() method.
+        """
+        if self._finished:
+            raise ValueError('Cannot restart a Channel after its been stopped.')
+
+        if not self._keep_running:
+            # Start the main loop.
+            self._keep_running = True
+            self.run()
+        else:
+            raise ValueError('Cannot start an already running Channel.')
+
+        return self.run()
+
+    def stop(self):
+        """Shut down the sensor channel.
+        """
+        self._keep_running = False
+        self._finished = True
+
+    @abc.abstractmethod
+    def run(self):
+        """Start the generator main loop.  Yield data.
+        """
+        pass
+
+    @property
+    def is_running(self):
+        return self._keep_running
+
+    @property
+    def is_finished(self):
+        return self._finished
+
+    def sleep(self, time_sleep):
+        """Sleep for specified interval (seconds).  Check for instructions to terminate.
+        """
+        dt = 0.1
+        time_zero = time.time()
+
+        while (time.time() - time_zero < time_sleep) and self._keep_running:
+            time.sleep(dt)
 
 #################################################
 
 
-def path_to_module():
-    p = os.path.dirname(os.path.abspath(__file__))
-    return p
+class Channel_DHT22_Raw(Channel_Base):
 
-
-class Channel_New(threading.Thread):
-    def __init__(self, pin, time_wait=5.0, verbose=False):
+    def __init__(self, pin, time_wait=5.0, **kwargs):
         """Read data from specified DHT22 sensor on specified GPIO pin.
 
         Parameters
@@ -34,21 +84,18 @@ class Channel_New(threading.Thread):
         time_wait : number of seconds between polling sensor for new data.
 
         """
-        self.verbose = verbose
+        super(Channel_DHT22_Raw, self).__init__(**kwargs)
+
         self.pin = pin
         self.time_wait = time_wait
-        self.keep_running = False
 
-    def start(self):
-        """Start the generator main loop.  Yield sequence of tuple (time_read, RH, Tf).
+    def run(self):
+        """Operate the generator main loop.  Yield sequence of tuples (time_read, RH, Tf).
         """
-        if self.verbose:
-            print('Channel start: %d' % self.pin)
-
         time_last_good = time.time()
         self.keep_running = True
 
-        while self.keep_running:
+        while self.is_running:
             # Record some data.  Keyword delay specified in microseconds.
             RH, Tf = dht22.read_dht22_single(self.pin, delay=1)
             time_read = time.time()
@@ -59,255 +106,247 @@ class Channel_New(threading.Thread):
                 yield time_read, RH, Tf
 
             else:
-                # Reading is not valid.  Do nothing for now.
+                # Reading is not valid.
                 if time.time() - time_last_good > 100.:
                     # Problem.  Stop looping.
-                    self.keep_running = False
-
-                    if self.verbose:
-                        print('Channel long time no data!: %d' % self.pin)
-
-                    break
+                    self.stop()
 
             # Wait a bit before attempting another measurement.
             self.sleep(self.time_wait)
 
-        if self.verbose:
-            print('Channel exit: %d' % self.pin)
-
-    def sleep(self, time_sleep):
-        """Sleep for specified interval.  Check for instructions to terminate.
-        """
-        dt = 0.1
-        time_zero = time.time()
-
-        while (time.time() - time_zero < time_sleep) and self.keep_running:
-            time.sleep(dt)
-
-    def stop(self):
-        """Shut down.
-        """
-        self.keep_running = False
-
 
 #################################################
 
+class Channel_DHT22_Kalman(Channel_Base):
 
-_time_wait_default = 8.
-_time_history_default = 10*60
+    def __init__(self, channel_raw, time_initialize=60, **kwargs):
+        """Apply Kalman filter to raw data from raw channel.
 
+        Parameters
+        ----------
+        channel_raw : Channel yielding raw data from a single DHT22 sensor.
 
-class Channel(threading.Thread):
-    def __init__(self, pin, queue,
-                 time_wait=None, time_history=None, *args, **kwargs):
+        time_initialize : Number of seconds to spend collecting data for initialization.
+
         """
-        Record data from specified sensor pin.
+        super(Channel_DHT22_Kalman, self).__init__(**kwargs)
 
-        time_wait: seconds between polling sensor
-        time_history: seconds of historical data remembered
-        """
+        if self.channel_raw.is_running:
+            raise ValueError('Cannot instanciate using an already started channel.')
 
-        threading.Thread.__init__(self, *args, **kwargs)
+        self.channel_raw = channel_raw
+        self.time_initialize = time_initialize
 
-        if not time_wait:
-            time_wait = _time_wait_default
+    def process_buffer(self, buffer_data):
+        pass
 
-        if not time_history:
-            time_history = _time_history_default
-
-        self.num_min_history = 10  # minimum historical samples required to test for outliers.
-        self.check_threshold = 25  # error threshold for temperature and humidity.
-        self.pin = pin
-        self.time_wait = time_wait
-        self.time_history = time_history
-        self.data_history = []
-        self.data_latest = None
-
-        self.record_data = True
-        self.keep_running = False
-        self.queue = queue
-
-        # print('Channel start: %d' % self.pin)
-
-        # Done.
+    def filter(self, time_read, RH_raw, T_raw):
+        dt = time_read - self.time_prior
+        self.time_prior = time_read
 
     def run(self):
+        """Operate main event loop.
         """
-        This is where the work happens.
-        """
-        self.keep_running = True
-        while self.keep_running:
-            time_zero = time.time()
-
-            if self.record_data:
-                # Record some data.  delay in microseconds.
-                RH, Tf = dht22.read_dht22_single(self.pin, delay=1)
-                time_read = time.time()
-
-                if not RH:
-                    # Reading is not valid.
-                    pass
-                else:
-                    # Reading is good.  Store it.
-                    info = {'kind': 'sample',
-                            'pin': self.pin,
-                            'RH': float(np.round(RH, decimals=2)),
-                            'Tf': float(np.round(Tf, decimals=2)),
-                            'seconds': float(np.round(time_read, decimals=2))}
-
-                    self.add_data(info)
-            else:
-                # Recording is paused.
-                # print('recording paused: %d' % self.pin)
-                pass
-
-            # Wait a bit before attempting another measurement.
-            dt = random.uniform(-0.1, 0.1)
-            time_delta = self.time_wait - (time_read - time_zero) + dt
-            if time_delta > 0:
-                self.sleep(time_delta)
-
-        print('Channel exit: %d' % self.pin)
-
-    def sleep(self, time_sleep):
-        """
-        Sleep for specified interval.  Check for instructions to exit thread.
-        """
-        dt = 0.1
+        buffer_data = []
+        still_buffering = True
         time_zero = time.time()
-        time_elapsed = 0.
 
-        while time_elapsed < time_sleep and self.keep_running:
-            time.sleep(dt)
-            time_elapsed = time.time() - time_zero
+        for time_read, RH_raw, T_raw in self.channel_raw.start():
 
-    def stop(self):
-        """
-        Tell thread to stop running.
-        """
-        self.keep_running = False
+            if still_buffering:
+                # Collect initialization data.
+                buffer_data.append((time_read, RH_raw, T_raw))
+                RH_filter = RH_raw
+                T_filter = T_raw
 
-    def add_data(self, info):
-        """
-        Add new data point.
-        """
-        num_remain, num_removed = self.adjust_history()
+                if time.time() - time_zero > self.time_initialize:
+                    self.process_buffer(buffer_data)
+                    still_buffering = False
+            else:
+                RH_filter, T_filter = self.filter(time_read, RH_raw, T_raw)
 
-        if num_remain == 0 and num_removed > 0:
-            raise ValueError('No data remains in history.')
-
-        info = self.check_values(info)
-
-        self.data_history.append(info)
-        self.data_latest = info
-
-        try:
-            self.queue.put(info, block=False)
-        except Queue.Full as e:
-            print('TODO: implement better way to handle this exception: %s' % e)
-            raise e
-
-    def adjust_history(self):
-        """
-        Remove data from history if older than time window.
-        """
-        time_stamp_now = time.time()
-
-        # Look for data samples that are too old.
-        list_too_old = []
-        for d in self.data_history:
-            delta = time_stamp_now - d['seconds']
-
-            if delta > self.time_history:
-                list_too_old.append(d)
-
-        # Remove old data from history.
-        for d in list_too_old:
-            self.data_history.remove(d)
-
-        # num_remain, num_removed
-        return len(self.data_history), len(list_too_old)
-
-    def _check_data_value(self, samples, value):
-        """
-        Check if sample is an outlier.  Replace with median.
-        """
-        value_med = np.median(samples)
-        delta = abs(value - value_med)
-
-        if delta > self.check_threshold:
-            # Fail.
-            value_checked = float(value_med)
-            msg = 'CHECK FAIL!  Replace: %.2f -> %.2f' % (value, value_checked)
-            print(msg)
-
-        else:
-            # Ok.
-            value_checked = value
-
-        return value_checked
-
-    def check_values(self, info_new):
-        """
-        Check supplied data against historical data.
-        If bad data, estimate replacement value.
-        """
-        if len(self.data_history) >= self.num_min_history:
-            data_history_RH = [info['RH'] for info in self.data_history]
-            data_history_Tf = [info['Tf'] for info in self.data_history]
-
-            RH_checked = self._check_data_value(data_history_RH, info_new['RH'])
-            Tf_checked = self._check_data_value(data_history_Tf, info_new['Tf'])
-
-            info_checked = info_new.copy()
-            info_checked['RH'] = RH_checked
-            info_checked['Tf'] = Tf_checked
-        else:
-            # Not enough history so just pass the the data through.
-            info_checked = info_new
-
-        return info_checked
-
-    @property
-    def freshness(self):
-        """
-        How fresh is the last recorded data?
-        """
-        if self.data_latest is None:
-            return None
-        else:
-            time_now = time.time()
-            delta_time = time_now - self.data_latest['seconds']
-
-            return delta_time
-
-    def pretty_sample_string(self, info):
-        """
-        Construct nice string representation of data sample information.
-        """
-        time_stamp_pretty = utility.pretty_timestamp(info['seconds'])
-        template = 'pin: %2d, Tf: %.1f, RH: %.1f, time: %s'
-        result = template % (self.pin, info['Tf'], info['RH'], time_stamp_pretty)
-
-        return result
-
-    def pretty_status(self):
-        """
-        Display current status.
-        """
-        print()
-        print('Sensor Channel Status')
-        print(' pin: %d' % self.pin)
-        print(' length data_history: %d' % len(self.data_history))
-        print(' length queue: %d' % self.queue.qsize())
-        print(' queue full: %s' % self.queue.full())
-        print(' queue empty: %s' % self.queue.empty())
-        print(' is running: %s' % self.keep_running)
-        print(' latest data: %s' % self.pretty_sample_string(self.data_latest))
-        print(' freshness: %.1f seconds' % self.freshness)
-        print()
+            yield time_read, RH_filter, T_filter
 
 #################################################
+
+# _time_wait_default = 8.
+# _time_history_default = 10*60
+# class Channel(threading.Thread):
+#     def __init__(self, pin, queue,
+#                  time_wait=None, time_history=None, *args, **kwargs):
+#         """
+#         Record data from specified sensor pin.
+#         time_wait: seconds between polling sensor
+#         time_history: seconds of historical data remembered
+#         """
+#         threading.Thread.__init__(self, *args, **kwargs)
+#         if not time_wait:
+#             time_wait = _time_wait_default
+#         if not time_history:
+#             time_history = _time_history_default
+#         self.num_min_history = 10  # minimum historical samples required to test for outliers.
+#         self.check_threshold = 25  # error threshold for temperature and humidity.
+#         self.pin = pin
+#         self.time_wait = time_wait
+#         self.time_history = time_history
+#         self.data_history = []
+#         self.data_latest = None
+#         self.record_data = True
+#         self.keep_running = False
+#         self.queue = queue
+#         # print('Channel start: %d' % self.pin)
+#         # Done.
+#     def run(self):
+#         """
+#         This is where the work happens.
+#         """
+#         self.keep_running = True
+#         while self.keep_running:
+#             time_zero = time.time()
+#             if self.record_data:
+#                 # Record some data.  delay in microseconds.
+#                 RH, Tf = dht22.read_dht22_single(self.pin, delay=1)
+#                 time_read = time.time()
+#                 if not RH:
+#                     # Reading is not valid.
+#                     pass
+#                 else:
+#                     # Reading is good.  Store it.
+#                     info = {'kind': 'sample',
+#                             'pin': self.pin,
+#                             'RH': float(np.round(RH, decimals=2)),
+#                             'Tf': float(np.round(Tf, decimals=2)),
+#                             'seconds': float(np.round(time_read, decimals=2))}
+#                     self.add_data(info)
+#             else:
+#                 # Recording is paused.
+#                 # print('recording paused: %d' % self.pin)
+#                 pass
+#             # Wait a bit before attempting another measurement.
+#             dt = random.uniform(-0.1, 0.1)
+#             time_delta = self.time_wait - (time_read - time_zero) + dt
+#             if time_delta > 0:
+#                 self.sleep(time_delta)
+#         print('Channel exit: %d' % self.pin)
+#     def sleep(self, time_sleep):
+#         """
+#         Sleep for specified interval.  Check for instructions to exit thread.
+#         """
+#         dt = 0.1
+#         time_zero = time.time()
+#         time_elapsed = 0.
+#         while time_elapsed < time_sleep and self.keep_running:
+#             time.sleep(dt)
+#             time_elapsed = time.time() - time_zero
+#     def stop(self):
+#         """
+#         Tell thread to stop running.
+#         """
+#         self.keep_running = False
+#     def add_data(self, info):
+#         """
+#         Add new data point.
+#         """
+#         num_remain, num_removed = self.adjust_history()
+#         if num_remain == 0 and num_removed > 0:
+#             raise ValueError('No data remains in history.')
+#         info = self.check_values(info)
+#         self.data_history.append(info)
+#         self.data_latest = info
+#         try:
+#             self.queue.put(info, block=False)
+#         except Queue.Full as e:
+#             print('TODO: implement better way to handle this exception: %s' % e)
+#             raise e
+#     def adjust_history(self):
+#         """
+#         Remove data from history if older than time window.
+#         """
+#         time_stamp_now = time.time()
+#         # Look for data samples that are too old.
+#         list_too_old = []
+#         for d in self.data_history:
+#             delta = time_stamp_now - d['seconds']
+#             if delta > self.time_history:
+#                 list_too_old.append(d)
+#         # Remove old data from history.
+#         for d in list_too_old:
+#             self.data_history.remove(d)
+#         # num_remain, num_removed
+#         return len(self.data_history), len(list_too_old)
+#     def _check_data_value(self, samples, value):
+#         """
+#         Check if sample is an outlier.  Replace with median.
+#         """
+#         value_med = np.median(samples)
+#         delta = abs(value - value_med)
+#         if delta > self.check_threshold:
+#             # Fail.
+#             value_checked = float(value_med)
+#             msg = 'CHECK FAIL!  Replace: %.2f -> %.2f' % (value, value_checked)
+#             print(msg)
+#         else:
+#             # Ok.
+#             value_checked = value
+#         return value_checked
+#     def check_values(self, info_new):
+#         """
+#         Check supplied data against historical data.
+#         If bad data, estimate replacement value.
+#         """
+#         if len(self.data_history) >= self.num_min_history:
+#             data_history_RH = [info['RH'] for info in self.data_history]
+#             data_history_Tf = [info['Tf'] for info in self.data_history]
+#             RH_checked = self._check_data_value(data_history_RH, info_new['RH'])
+#             Tf_checked = self._check_data_value(data_history_Tf, info_new['Tf'])
+#             info_checked = info_new.copy()
+#             info_checked['RH'] = RH_checked
+#             info_checked['Tf'] = Tf_checked
+#         else:
+#             # Not enough history so just pass the the data through.
+#             info_checked = info_new
+#         return info_checked
+#     @property
+#     def freshness(self):
+#         """
+#         How fresh is the last recorded data?
+#         """
+#         if self.data_latest is None:
+#             return None
+#         else:
+#             time_now = time.time()
+#             delta_time = time_now - self.data_latest['seconds']
+#             return delta_time
+#     def pretty_sample_string(self, info):
+#         """
+#         Construct nice string representation of data sample information.
+#         """
+#         time_stamp_pretty = utility.pretty_timestamp(info['seconds'])
+#         template = 'pin: %2d, Tf: %.1f, RH: %.1f, time: %s'
+#         result = template % (self.pin, info['Tf'], info['RH'], time_stamp_pretty)
+#         return result
+    # def pretty_status(self):
+    #     """
+    #     Display current status.
+    #     """
+    #     print()
+    #     print('Sensor Channel Status')
+    #     print(' pin: %d' % self.pin)
+    #     print(' length data_history: %d' % len(self.data_history))
+    #     print(' length queue: %d' % self.queue.qsize())
+    #     print(' queue full: %s' % self.queue.full())
+    #     print(' queue empty: %s' % self.queue.empty())
+    #     print(' is running: %s' % self.keep_running)
+    #     print(' latest data: %s' % self.pretty_sample_string(self.data_latest))
+    #     print(' freshness: %.1f seconds' % self.freshness)
+    #     print()
+#################################################
+# def pause_channels(channels):
+#     for c in channels:
+#         c.record_data = False
+# def unpause_channels(channels):
+#     for c in channels:
+#         c.record_data = True
 
 
 def stop_channels(channels):
@@ -324,16 +363,6 @@ def stop_channels(channels):
                 c.join()
 
     # Done.
-
-
-def pause_channels(channels):
-    for c in channels:
-        c.record_data = False
-
-
-def unpause_channels(channels):
-    for c in channels:
-        c.record_data = True
 
 
 def start_channels(pins_data):
@@ -436,30 +465,5 @@ def data_collector(queue, time_interval=60):
 
 #################################################
 
-
-def example_single():
-    """Read multiple data samples from single sensor over short period of time.
-    """
-
-    pin = 25
-
-    num_samples = 10
-    time_wait = 5.  # seconds
-
-    print('\npin: %d\n' % pin)
-
-    for k in range(num_samples):
-        RH, Tc = dht22.read_dht22_single(pin)
-
-        if RH:
-            print('RH: %.1f, Tc: %.1f' % (RH, Tc))
-        else:
-            print('Error: %s' % Tc)
-
-        time.sleep(time_wait)
-
-#################################################
-
 if __name__ == '__main__':
-    # Examples.
-    example_single()
+    pass

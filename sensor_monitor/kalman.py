@@ -94,11 +94,16 @@ thresh_log_like = -5.
 # Initialize model using leading data.
 t0 = index_to_seconds(df_all.index[0])
 
-time_a, time_b = arrow.get(df_all.index[0]).span('hour')
+# time_a, time_b = arrow.get(df_all.index[0]).span('hour')
+# fmt = 'YYYY-MM-DD HH:mm:ss'
+# df_init = df_all[time_a.format(fmt):time_b.format(fmt)]
+# df_work = df_all[time_b.format(fmt):]
 
+time_a, time_b = arrow.get(df_all.index[0]).span('hour')
 fmt = 'YYYY-MM-DD HH:mm:ss'
-df_init = df_all[time_a.format(fmt):time_b.format(fmt)]
-df_work = df_all[time_b.format(fmt):]
+time_b_fmt = '2013-10-11 00:09:59'
+df_init = df_all[time_a.format(fmt):time_b_fmt]
+df_work = df_all[time_b_fmt:]
 
 seconds_all = dataframe_seconds(df_all, t0)
 seconds_init = dataframe_seconds(df_init, t0)
@@ -114,6 +119,16 @@ T0 = df_init.Temperature.values.mean()
 T1 = 0.0
 T0_std = 0.02
 T1_std = 1.e-5
+
+# Save data to simple text file.
+f = 'sample_data_10_min.txt'
+with open(f, 'w') as fo:
+    # for tsec, RH, T in zip(seconds_all, df_all.Humidity.values, df_all.Temperature.values):
+    for tsec, RH, T in zip(seconds_init, df_init.Humidity.values, df_init.Temperature.values):
+        line = '{:f}, {:f}, {:f}\n'.format(tsec, RH, T)
+        fo.write(line)
+
+# 1/0
 
 # Observation statistics.
 H0_obs_std = 2.0  # np.std(df_init.Humidity.values)
