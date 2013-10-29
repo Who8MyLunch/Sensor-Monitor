@@ -1,6 +1,7 @@
 
 from __future__ import division, print_function, unicode_literals
 
+import os
 import time
 # import threading
 import Queue
@@ -93,7 +94,6 @@ class Channel_DHT22_Raw(Channel_Base):
         """Operate the generator main loop.  Yield sequence of tuples (time_read, RH, Tf).
         """
         time_last_good = time.time()
-        self.keep_running = True
 
         while self.is_running:
             # Record some data.  Keyword delay specified in microseconds.
@@ -134,6 +134,9 @@ class Channel_DHT22_Data_File(Channel_Base):
         self.fname = fname_data
         self.time_wait = time_wait
 
+        self.data = None
+        self.load_data()
+
     def load_data(self, fname=None):
         """Load data samples from file.
         """
@@ -156,8 +159,10 @@ class Channel_DHT22_Data_File(Channel_Base):
 
         time_last_good = time_local_zero
 
-        self.keep_running = True
         for time_read, RH, Tf in self.data:
+            if not self.is_running:
+                return
+
             time_read += time_local_zero - time_data_zero
 
             # Wait until time_read actually happens.
@@ -175,6 +180,8 @@ class Channel_DHT22_Data_File(Channel_Base):
                     # Problem.  Stop looping.
                     self.stop()
 
+            if not self.is_running:
+                return
 
 
 #################################################
@@ -528,4 +535,7 @@ def data_collector(queue, time_interval=60):
 #################################################
 
 if __name__ == '__main__':
-    pass
+    path_module = os.path.normpath(os.path.dirname(__file__))
+
+    fname = os.path.join(path_module, '..', 'sensor_monitor', 'sample_data_10_min.txt')
+    C = Channel_DHT22_Data_File(fname)

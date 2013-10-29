@@ -50,8 +50,9 @@ class Test_Channel(unittest.TestCase):
     def test_channel_file_init(self):
         fname = os.path.join(path_module, '..', 'sensor_monitor', 'sample_data_10_min.txt')
         C = sensor_monitor.sensors.Channel_DHT22_Data_File(fname)
-        print(C.data.shape)
-        # self.assertTrue(C.data == pin_data)
+
+        self.assertTrue(os.path.isfile(C.fname))
+        self.assertTrue(C.data.shape[1] == 3)
 
     def test_channel_file_start(self):
         fname = os.path.join(path_module, '..', 'sensor_monitor', 'sample_data_10_min.txt')
