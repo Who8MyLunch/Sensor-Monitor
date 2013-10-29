@@ -7,7 +7,7 @@ import Queue
 import random
 import abc
 
-# import numpy as np
+import numpy as np
 # import pykalman
 # import pykalman.sqrt
 
@@ -116,6 +116,7 @@ class Channel_DHT22_Raw(Channel_Base):
 
 #################################################
 
+
 class Channel_DHT22_Data_File(Channel_Base):
 
     def __init__(self, fname_data, time_wait=5.0, **kwargs):
@@ -140,20 +141,28 @@ class Channel_DHT22_Data_File(Channel_Base):
             self.fname = fname
 
         data = []
-        with open(fname, 'r') as fi:
+        with open(self.fname, 'r') as fi:
             for line in fi.readlines():
+                d = np.asarray(line.split(','), dtype=np.float32)
+                data.append(d)
 
+        self.data = np.asarray(data)
 
     def run(self):
         """Operate the generator main loop.  Yield sequence of tuples (time_read, RH, Tf).
         """
-        time_last_good = time.time()
-        self.keep_running = True
+        time_data_zero = self.data[0][0]
+        time_local_zero = time.time()
 
-        while self.is_running:
-            # Record some data.  Keyword delay specified in microseconds.
-            RH, Tf = dht22.read_dht22_single(self.pin, delay=1)
-            time_read = time.time()
+        time_last_good = time_local_zero
+
+        self.keep_running = True
+        for time_read, RH, Tf in self.data:
+            time_read += time_local_zero - time_data_zero
+
+            # Wait until time_read actually happens.
+            while time.time() - time_read < 0:
+                time.sleep(0.1)
 
             if RH:
                 # Reading is good.
@@ -166,8 +175,6 @@ class Channel_DHT22_Data_File(Channel_Base):
                     # Problem.  Stop looping.
                     self.stop()
 
-            # Wait a bit before attempting another measurement.
-            self.sleep(self.time_wait)
 
 
 #################################################
