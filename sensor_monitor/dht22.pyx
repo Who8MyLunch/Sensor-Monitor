@@ -122,12 +122,13 @@ cdef int send_start(int pin_data) nogil:
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def read_raw(int pin_data, int num_data=4000, int delay=1):
-    """
-    Read raw data stream from sensor.
-    num_data == number of data measurements to make.
-    """
+    """Read raw data stream from sensor.
 
-    # SetupGpio()
+    Parameters
+    ----------
+    num_data : int, number of data measurements to make.
+
+    """
 
     # Setup.
     data_signal = np.zeros(num_data, dtype=np.int)
@@ -176,13 +177,21 @@ def read_raw(int pin_data, int num_data=4000, int delay=1):
     # Done.
     return data_signal, info
 
-###########
+#################################################
 
 
 cdef int read_single_bit(int pin_data, int delay) nogil:
-    """
-    Number of ticks that signal stays down.
-    If timeout then return -1.
+    """Read a signle bit of data.
+
+    Notes
+    -----
+    High/low determined by length of time that signal stays down.
+
+    Returns
+    -------
+    Return bit value, 0 or 1.
+    Return -1 if error.
+
     """
     cdef int count_timeout = 200000
     cdef int count_wait = 0
@@ -230,9 +239,12 @@ cdef int read_single_bit(int pin_data, int delay) nogil:
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def read_bits(int pin_data, int delay=1):
-    """
-    Read data from DHT22 sensor.
-    delay = wait time between polling sensor, microseconds.
+    """Read data from DHT22 sensor.
+
+    Parameters
+    ----------
+    delay : int, wait time between polling sensor, microseconds.
+
     """
 
     # Storage.
@@ -272,7 +284,12 @@ def read_bits(int pin_data, int delay=1):
 
 
 def compute_checksum(byte_1, byte_2, byte_3, byte_4, byte_5):
-    """Compute checksum.  Return True or false.
+    """Compute checksum for DHT22 data sample.
+
+    Returns
+    -------
+    Return True or false indicating successful checksum.
+
     """
     val_sum = byte_1 + byte_2 + byte_3 + byte_4
     val_check = val_sum & 255
@@ -336,11 +353,13 @@ def f2c(F):
 
 
 def read_dht22_single(pin_data, delay=1):
-    """
-    Read temperature and humidity data from sensor.
-    Just a single sample.  Return None if checksum fails or any other problem.
-    """
+    """Read single sample of temperature and humidity data from sensor.
 
+    Notes
+    -----
+    Return tuple (RH, Tf), or None if checksum fails or any other problem.
+
+    """
     time.sleep(0.01)
 
     # Read some bits.

@@ -38,6 +38,9 @@ class Test_Basic_Read_Some_Data(unittest.TestCase):
 
         time_0 = time.time()
         flag = False
+
+        print()
+
         while time.time() - time_0 < time_max:
             RH, Tc = sensor_monitor.dht22.read_dht22_single(pin_data)
 

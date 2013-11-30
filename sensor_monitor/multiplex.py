@@ -1,13 +1,14 @@
 from __future__ import division, print_function, unicode_literals
+
 """
-Generate items from multiple generators (multiplex).
+Generator multiplexer.  Yield items received from multiple generators.
+
 """
 
 import Queue
 import threading
 
-
-def gen_multiplex(gen_list):
+def generate(gen_list):
     item_q = Queue.Queue()
 
     def run_one(source):
@@ -21,18 +22,22 @@ def gen_multiplex(gen_list):
         Run each source generator inside its own run_one thread.  Wait for individual threads
         to end when corresponding generator is finished.  Finally send StopIteration through the
         Queue to indicate all sources are finished.
+
         """
+        # Start all threads.
         thread_list = []
         for source in gen_list:
             t = threading.Thread(target=run_one, args=(source,))
             t.start()
             thread_list.append(t)
 
+        # Block until all threads are done.
         for t in thread_list:
             t.join()
 
         # Indcate that the show is over.
         item_q.put(StopIteration)
+
 
     # Start up all the threads with their own queues.
     threading.Thread(target=run_all).start()
@@ -73,7 +78,7 @@ if __name__ == '__main__':
     N = 10
 
     gens = gen_alpha(N), gen_numeric(N), gen_numeric(N)
-    gen_combo = gen_multiplex(gens)
+    gen_combo = generate(gens)
 
     for value in gen_combo:
         print(value)

@@ -27,7 +27,7 @@ class Channel_Base(object):
         self.verbose = verbose
 
     def start(self):
-        """Start the main event loop by calling subclass's run() method.
+        """Start the main event loop.  This function in turn calls subclass's run() method.
         """
         if self._finished:
             raise ValueError('Cannot restart a Channel after its been stopped.')
@@ -49,7 +49,12 @@ class Channel_Base(object):
 
     @abc.abstractmethod
     def run(self):
-        """Start the generator main loop.  Yield data.
+        """Must be implemented by subclass.  This method starts the generator main loop.
+
+        Returns
+        -------
+        Yield sequence of tuples containing data (time_read, RH, Tf).
+
         """
         pass
 
@@ -64,7 +69,7 @@ class Channel_Base(object):
     def sleep(self, time_sleep):
         """Sleep for specified interval (seconds).  Check for instructions to terminate.
         """
-        dt = 0.1
+        dt = 0.025
         time_zero = time.time()
 
         while (time.time() - time_zero < time_sleep) and self._keep_running:
@@ -75,7 +80,7 @@ class Channel_Base(object):
 
 class Channel_DHT22_Raw(Channel_Base):
 
-    def __init__(self, pin, time_wait=5.0, **kwargs):
+    def __init__(self, pin, time_wait=5.0, verbose=False):
         """Read data from specified DHT22 sensor on specified GPIO pin.
 
         Parameters
@@ -85,19 +90,26 @@ class Channel_DHT22_Raw(Channel_Base):
         time_wait : number of seconds between polling sensor for new data.
 
         """
-        super(Channel_DHT22_Raw, self).__init__(**kwargs)
+        super(Channel_DHT22_Raw, self).__init__(verbose=vervose)
 
         self.pin = pin
         self.time_wait = time_wait
+        self.delay = 1  # milliseconds
 
     def run(self):
-        """Operate the generator main loop.  Yield sequence of tuples (time_read, RH, Tf).
+        """Operate the generator main loop.
+
+        Returns
+        -------
+        Yield sequence of tuples containing data (time_read, RH, Tf).
+
         """
+        time_timeout = 100  # seconds
         time_last_good = time.time()
 
         while self.is_running:
             # Record some data.  Keyword delay specified in microseconds.
-            RH, Tf = dht22.read_dht22_single(self.pin, delay=1)
+            RH, Tf = dht22.read_dht22_single(self.pin, delay=self.delay)
             time_read = time.time()
 
             if RH:
@@ -107,7 +119,7 @@ class Channel_DHT22_Raw(Channel_Base):
 
             else:
                 # Reading is not valid.
-                if time.time() - time_last_good > 100.:
+                if time_read - time_last_good > time_timeout:
                     # Problem.  Stop looping.
                     self.stop()
 
@@ -119,7 +131,7 @@ class Channel_DHT22_Raw(Channel_Base):
 
 class Channel_DHT22_Data_File(Channel_Base):
 
-    def __init__(self, fname_data, time_wait=5.0, **kwargs):
+    def __init__(self, fname_data, time_wait=5.0, realtime=False, verbose=False):
         """Read raw DHT22 data from specified text file.
 
         Parameters
@@ -128,17 +140,25 @@ class Channel_DHT22_Data_File(Channel_Base):
 
         time_wait : number of seconds between polling sensor for new data.
 
+        realtime : boolean, if True, then simulate reading data in realtime.  If False, then
+                            yield data as fast as possible.
         """
-        super(Channel_DHT22_Data_File, self).__init__(**kwargs)
+        super(Channel_DHT22_Data_File, self).__init__(verbose=verbose)
 
         self.fname = fname_data
         self.time_wait = time_wait
+        self.realtime = realtime
 
         self.data = None
         self.load_data()
 
     def load_data(self, fname=None):
-        """Load data samples from file.
+        """Load data samples from file.  Data to be yielded to parent.
+
+        Parameters
+        ----------
+        fname : file name string (optional).  This value will replace any previously set file names.
+
         """
         if fname:
             self.fname = fname
@@ -152,22 +172,32 @@ class Channel_DHT22_Data_File(Channel_Base):
         self.data = np.asarray(data)
 
     def run(self):
-        """Operate the generator main loop.  Yield sequence of tuples (time_read, RH, Tf).
+        """Operate the generator main loop.
+
+        Returns
+        -------
+        Yield sequence of tuples (time_read, RH, Tf).
+
         """
+        time_timeout = 100  # seconds
+
         time_data_zero = self.data[0][0]
         time_local_zero = time.time()
 
-        time_last_good = time_local_zero
+        if self.realtime:
+            time_last_good = time_local_zero
+        else:
+            time_last_good = time_data_zero
 
         for time_read, RH, Tf in self.data:
             if not self.is_running:
                 return
 
-            time_read += time_local_zero - time_data_zero
-
-            # Wait until time_read actually happens.
-            while time.time() - time_read < 0:
-                time.sleep(0.1)
+            # Simulate realtime data collection.  Wait until time_read actually happens.
+            if self.realtime:
+                time_read += time_local_zero - time_data_zero
+                while time.time() - time_read < 0:
+                    time.sleep(0.01)
 
             if RH:
                 # Reading is good.
@@ -176,7 +206,7 @@ class Channel_DHT22_Data_File(Channel_Base):
 
             else:
                 # Reading is not valid.
-                if time.time() - time_last_good > 100.:
+                if time_read - time_last_good > time_timeout:
                     # Problem.  Stop looping.
                     self.stop()
 
@@ -186,24 +216,22 @@ class Channel_DHT22_Data_File(Channel_Base):
 
 #################################################
 
-class Channel_DHT22_Kalman(Channel_Base):
+class Channel_Filter_Kalman(object):
 
-    def __init__(self, channel_raw, time_initialize=60, **kwargs):
+    def __init__(self, channel, time_initialize=60):
         """Apply Kalman filter to raw data from raw channel.
 
         Parameters
         ----------
-        channel_raw : Channel yielding raw data from a single DHT22 sensor.
+        channel : Channel data iterator yuielding data from a single sensor.
 
         time_initialize : Number of seconds to spend collecting data for initialization.
 
         """
-        super(Channel_DHT22_Kalman, self).__init__(**kwargs)
-
         if self.channel_raw.is_running:
-            raise ValueError('Cannot instanciate using an already started channel.')
+            raise ValueError('Cannot accept as input an already-started channel.')
 
-        self.channel_raw = channel_raw
+        self.channel = channel
         self.time_initialize = time_initialize
 
     def process_buffer(self, buffer_data):
@@ -214,29 +242,39 @@ class Channel_DHT22_Kalman(Channel_Base):
         self.time_prior = time_read
 
     def run(self):
-        """Operate main event loop.
+        """Operate the generator main loop.
+
+        Returns
+        -------
+        Yield sequence of tuples (time_read, RH, Tf).
+
         """
         buffer_data = []
         still_buffering = True
-        time_zero = time.time()
+        time_zero = None
 
-        for time_read, RH_raw, T_raw in self.channel_raw.start():
+        for time_read, RH, Tf in self.channel.start():
 
             if still_buffering:
                 # Collect initialization data.
-                buffer_data.append((time_read, RH_raw, T_raw))
-                RH_filter = RH_raw
-                T_filter = T_raw
+                if not time_zero:
+                    time_zero = time_read
 
-                if time.time() - time_zero > self.time_initialize:
+                buffer_data.append((time_read, RH, Tf))
+                RH_filter = RH
+                Tf_filter = Tf
+
+                if time_read - time_zero > self.time_initialize:
                     self.process_buffer(buffer_data)
                     still_buffering = False
             else:
-                RH_filter, T_filter = self.filter(time_read, RH_raw, T_raw)
+                # Normal data processing.
+                RH_filter, Tf_filter = self.filter(time_read, RH, Tf)
 
-            yield time_read, RH_filter, T_filter
+            yield time_read, RH_filter, Tf_filter
 
 #################################################
+
 
 # _time_wait_default = 8.
 # _time_history_default = 10*60
